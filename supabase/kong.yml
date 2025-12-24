@@ -19,6 +19,10 @@ plugins:
         - content-type
         - x-client-info
         - x-supabase-api-version
+        - accept
+        - accept-profile
+        - content-profile
+        - prefer
 
 services:
   - name: auth

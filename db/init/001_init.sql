@@ -1,5 +1,30 @@
 create extension if not exists "pgcrypto";
 
+alter table auth.users
+  alter column role set default 'authenticated';
+
+update auth.users
+  set role = 'authenticated'
+  where role is null or role = '';
+
+create or replace function auth.set_default_role()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.role is null or btrim(new.role) = '' then
+    new.role := 'authenticated';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists set_default_role on auth.users;
+create trigger set_default_role
+  before insert or update on auth.users
+  for each row execute function auth.set_default_role();
+
 do $$ begin
   if not exists (
     select 1 from pg_type t
@@ -176,7 +201,9 @@ create or replace function public.is_family_member(family uuid)
 returns boolean
 language sql
 stable
+security definer
 set search_path = public
+set row_security = off
 as $$
   select exists (
     select 1
@@ -190,7 +217,9 @@ create or replace function public.is_family_writer(family uuid)
 returns boolean
 language sql
 stable
+security definer
 set search_path = public
+set row_security = off
 as $$
   select exists (
     select 1
@@ -205,7 +234,9 @@ create or replace function public.is_family_admin(family uuid)
 returns boolean
 language sql
 stable
+security definer
 set search_path = public
+set row_security = off
 as $$
   select exists (
     select 1
@@ -220,7 +251,10 @@ alter table public.families enable row level security;
 
 create policy families_select on public.families
   for select
-  using (public.is_family_member(id));
+  using (
+    public.is_family_member(id)
+    or created_by = (select auth.uid())
+  );
 
 create policy families_insert on public.families
   for insert
@@ -238,30 +272,48 @@ alter table public.memberships enable row level security;
 
 create policy memberships_select on public.memberships
   for select
-  using (public.is_family_member(family_id));
+  using (
+    user_id = (select auth.uid())
+    or exists (
+      select 1
+      from public.families f
+      where f.id = family_id
+        and f.created_by = (select auth.uid())
+    )
+  );
 
 create policy memberships_insert on public.memberships
   for insert
   with check (
-    public.is_family_admin(family_id)
-    or (
-      user_id = (select auth.uid())
-      and exists (
-        select 1
-        from public.families f
-        where f.id = family_id
-          and f.created_by = (select auth.uid())
-      )
+    exists (
+      select 1
+      from public.families f
+      where f.id = family_id
+        and f.created_by = (select auth.uid())
     )
   );
 
 create policy memberships_update_admin on public.memberships
   for update
-  using (public.is_family_admin(family_id));
+  using (
+    exists (
+      select 1
+      from public.families f
+      where f.id = family_id
+        and f.created_by = (select auth.uid())
+    )
+  );
 
 create policy memberships_delete_admin on public.memberships
   for delete
-  using (public.is_family_admin(family_id));
+  using (
+    exists (
+      select 1
+      from public.families f
+      where f.id = family_id
+        and f.created_by = (select auth.uid())
+    )
+  );
 
 alter table public.accounts enable row level security;
 
