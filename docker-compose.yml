@@ -1,7 +1,7 @@
 services:
   db:
     image: supabase/postgres:15.8.1.085
-    container_name: dindin-db
+    container_name: gestor-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -24,11 +24,11 @@ services:
       - ./supabase/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:ro
       - ./supabase/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:ro
       - ./supabase/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:ro
-      - ./db/init/001_init.sql:/docker-entrypoint-initdb.d/migrations/99-dindin.sql:ro
+      - ./db/init/001_init.sql:/docker-entrypoint-initdb.d/migrations/99-gestor.sql:ro
 
   auth:
     image: supabase/gotrue:v2.184.0
-    container_name: dindin-auth
+    container_name: gestor-auth
     restart: unless-stopped
     depends_on:
       - db
@@ -57,7 +57,7 @@ services:
 
   rest:
     image: postgrest/postgrest:v14.1
-    container_name: dindin-rest
+    container_name: gestor-rest
     restart: unless-stopped
     depends_on:
       - db
@@ -71,7 +71,7 @@ services:
 
   realtime:
     image: supabase/realtime:v2.68.0
-    container_name: dindin-realtime
+    container_name: gestor-realtime
     restart: unless-stopped
     depends_on:
       - db
@@ -90,7 +90,7 @@ services:
 
   storage:
     image: supabase/storage-api:v1.33.0
-    container_name: dindin-storage
+    container_name: gestor-storage
     restart: unless-stopped
     depends_on:
       - db
@@ -118,7 +118,7 @@ services:
 
   imgproxy:
     image: darthsim/imgproxy:v3.8.0
-    container_name: dindin-imgproxy
+    container_name: gestor-imgproxy
     restart: unless-stopped
     environment:
       IMGPROXY_BIND: ":5001"
@@ -131,7 +131,7 @@ services:
 
   meta:
     image: supabase/postgres-meta:v0.95.1
-    container_name: dindin-meta
+    container_name: gestor-meta
     restart: unless-stopped
     depends_on:
       - db
@@ -146,7 +146,7 @@ services:
 
   studio:
     image: supabase/studio:2025.12.17-sha-43f4f7f
-    container_name: dindin-studio
+    container_name: gestor-studio
     restart: unless-stopped
     depends_on:
       - meta
@@ -174,7 +174,7 @@ services:
 
   kong:
     image: kong:2.8.1
-    container_name: dindin-kong
+    container_name: gestor-kong
     restart: unless-stopped
     depends_on:
       - auth
@@ -197,7 +197,7 @@ services:
 
   n8n:
     image: n8nio/n8n:2.1.1
-    container_name: dindin-n8n
+    container_name: gestor-n8n
     restart: unless-stopped
     ports:
       - "5678:5678"
@@ -215,7 +215,7 @@ services:
   ofx:
     build:
       context: ./services/ofx
-    container_name: dindin-ofx
+    container_name: gestor-ofx
     restart: unless-stopped
     environment:
       OFX_PORT: ${OFX_PORT}
@@ -226,7 +226,7 @@ services:
   web:
     build:
       context: ./apps/web
-    container_name: dindin-web
+    container_name: gestor-web
     restart: unless-stopped
     depends_on:
       - kong

@@ -9,9 +9,9 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       </div>
       <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-10 px-6 py-12 lg:flex-row lg:items-center">
         <aside className="flex flex-1 flex-col gap-6">
-          <span className="w-fit rounded-full border border-[var(--border)] bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-            DINDIN
-          </span>
+          <div className="flex h-10 w-[140px] items-center justify-center rounded-xl bg-slate-950/95 px-2 shadow-sm">
+            <img src="/logo_gestor.png" alt="Gestor" className="h-7 w-auto" />
+          </div>
           <div className="space-y-4">
             <h1 className="font-heading text-3xl leading-tight text-[var(--ink)] sm:text-4xl tracking-tight">
               Controle financeiro da família sem complicação.

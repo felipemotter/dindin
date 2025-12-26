@@ -15,7 +15,7 @@ const headingFont = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Projeto Dindin",
+  title: "Gestor",
   description: "Controle financeiro familiar com Supabase e automações.",
 };
 

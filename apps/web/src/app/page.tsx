@@ -1046,17 +1046,13 @@ export default function HomePage() {
         ) : session ? (
           <div className="grid min-h-[calc(100vh-3rem)] gap-6 lg:grid-cols-[220px_1fr]">
             <aside className="hidden lg:flex lg:flex-col rounded-3xl border border-[var(--border)] bg-white/90 p-5 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent)] text-sm font-semibold text-white">
-                  DD
-                </div>
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-[var(--muted)]">
-                    Projeto
-                  </p>
-                  <p className="text-base font-semibold text-[var(--ink)]">
-                    Dindin
-                  </p>
+              <div className="flex items-center">
+                <div className="flex h-14 w-full items-center justify-center rounded-2xl px-1">
+                  <img
+                    src="/logo_gestor.png"
+                    alt="Gestor"
+                    className="h-10 w-full object-contain"
+                  />
                 </div>
               </div>
               <nav className="mt-6 flex flex-1 flex-col gap-1 text-sm text-[var(--muted)]">
@@ -1101,78 +1097,98 @@ export default function HomePage() {
             </aside>
 
             <div className="flex min-w-0 flex-col gap-6">
-              <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-[var(--border)] bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent)] text-sm font-semibold text-white lg:hidden">
-                    DD
+              <header className="rounded-3xl border border-[var(--border)] bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-[160px] items-center justify-center rounded-xl px-1 lg:hidden">
+                        <img
+                          src="/logo_gestor.png"
+                          alt="Gestor"
+                          className="h-8 w-full object-contain"
+                        />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-[var(--muted)]">
+                          Dashboard
+                        </p>
+                        <p className="text-xl font-semibold text-[var(--ink)]">
+                          Visão geral
+                        </p>
+                        <p className="text-xs text-[var(--muted)]">
+                          Família ativa:{" "}
+                          {activeMembership?.family?.name ?? "Selecione"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={openTransactionModal}
+                        className={`inline-flex h-10 items-center justify-center rounded-full bg-[var(--accent)] px-4 text-xs font-semibold text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)] ${
+                          !canCreateTransaction ? "opacity-60" : ""
+                        }`}
+                      >
+                        Novo lançamento
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+                        disabled
+                      >
+                        Transferência
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+                        disabled
+                      >
+                        Importar
+                      </button>
+                      <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-2 py-1 shadow-sm">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-white text-xs font-semibold text-[var(--ink)]">
+                          {userInitial}
+                        </div>
+                        <button
+                          type="button"
+                          className="inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-semibold text-[var(--ink)] transition hover:text-[var(--accent-strong)]"
+                          disabled={isSigningOut}
+                          onClick={handleSignOut}
+                        >
+                          {isSigningOut ? "Saindo..." : "Sair"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-[var(--muted)]">
-                      Dashboard
-                    </p>
-                    <p className="text-lg font-semibold text-[var(--ink)]">
-                      Visão geral
-                    </p>
-                    <p className="text-xs text-[var(--muted)]">
-                      Família: {activeMembership?.family?.name ?? "Selecione"}
-                    </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex max-w-[260px] items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm">
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
+                        Família
+                      </span>
+                      <span className="truncate text-xs font-semibold text-[var(--ink)]">
+                        {activeMembership?.family?.name ?? "Sem família"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
+                        Período
+                      </span>
+                      <input
+                        type="month"
+                        value={activeMonth}
+                        onChange={(event) => setActiveMonth(event.target.value)}
+                        className="h-10 rounded-xl border border-[var(--border)] bg-white px-3 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                      />
+                    </div>
+                    <div className="min-w-[220px] flex-1">
+                      <input
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder="Buscar lançamentos, contas ou categorias..."
+                        className="h-10 w-full rounded-xl border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
-                      Família
-                    </p>
-                    <p className="text-xs font-semibold text-[var(--ink)]">
-                      {activeMembership?.family?.name ?? "Sem família"}
-                    </p>
-                  </div>
-                  <input
-                    type="month"
-                    value={activeMonth}
-                    onChange={(event) => setActiveMonth(event.target.value)}
-                    className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                  />
-                  <input
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Buscar..."
-                    className="min-w-[200px] rounded-xl border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                  />
-                  <button
-                    type="button"
-                    onClick={openTransactionModal}
-                    className={`inline-flex items-center justify-center rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)] ${
-                      !canCreateTransaction ? "opacity-60" : ""
-                    }`}
-                  >
-                    Novo lançamento
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                    disabled
-                  >
-                    Transferência
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                    disabled
-                  >
-                    Importar
-                  </button>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-white text-xs font-semibold text-[var(--ink)] shadow-sm">
-                    {userInitial}
-                  </div>
-                  <button
-                    type="button"
-                    className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                    disabled={isSigningOut}
-                    onClick={handleSignOut}
-                  >
-                    {isSigningOut ? "Saindo..." : "Sair"}
-                  </button>
                 </div>
               </header>
 

@@ -1,6 +1,6 @@
-# Dindin Web
+# Gestor Web
 
-Frontend do Projeto Dindin (Next.js + Tailwind).
+Frontend do Gestor (Next.js + Tailwind).
 
 ## Setup rapido
 

@@ -1,4 +1,4 @@
-# Projeto Dindin
+# Gestor
 
 App de controle financeiro familiar com multi-usuarios, permissoes, ingestao de extratos e automacoes.
 
