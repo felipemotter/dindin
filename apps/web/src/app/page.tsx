@@ -19,6 +19,8 @@ const shortDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "2-digit",
 });
 
+const typeFilterAll = ["expense", "income", "transfer"] as const;
+
 const getMonthRange = (monthValue: string) => {
   const [year, month] = monthValue.split("-").map(Number);
   if (!year || !month) {
@@ -38,6 +40,9 @@ export default function HomePage() {
   const [session, setSession] = useState<Session | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [activeView, setActiveView] = useState<
+    "dashboard" | "transactions" | "transfers"
+  >("dashboard");
   const [activeMonth, setActiveMonth] = useState(() =>
     new Date().toISOString().slice(0, 7),
   );
@@ -125,6 +130,14 @@ export default function HomePage() {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [filterAccountId, setFilterAccountId] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [typeFilters, setTypeFilters] = useState<string[]>([
+    ...typeFilterAll,
+  ]);
+  const [transferFromAccountId, setTransferFromAccountId] = useState("");
+  const [transferToAccountId, setTransferToAccountId] = useState("");
+  const [transferSearch, setTransferSearch] = useState("");
+  const [transferMinAmount, setTransferMinAmount] = useState("");
+  const [transferMaxAmount, setTransferMaxAmount] = useState("");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
 
@@ -507,8 +520,36 @@ export default function HomePage() {
   ]);
 
   useEffect(() => {
-    setTransactionsLimit(8);
-  }, [filterAccountId, filterCategoryId, filterStartDate, filterEndDate, activeFamilyId]);
+    setTransactionsLimit(activeView === "transfers" ? 50 : 8);
+  }, [
+    filterAccountId,
+    filterCategoryId,
+    filterStartDate,
+    filterEndDate,
+    activeFamilyId,
+    activeView,
+  ]);
+
+  useEffect(() => {
+    if (activeView === "transactions") {
+      return;
+    }
+    setFilterAccountId("");
+    setFilterCategoryId("");
+    setSearchQuery("");
+    setTypeFilters([...typeFilterAll]);
+  }, [activeView]);
+
+  useEffect(() => {
+    if (activeView === "transfers") {
+      return;
+    }
+    setTransferFromAccountId("");
+    setTransferToAccountId("");
+    setTransferSearch("");
+    setTransferMinAmount("");
+    setTransferMaxAmount("");
+  }, [activeView]);
 
   useEffect(() => {
     if (!activeFamilyId) {
@@ -520,7 +561,13 @@ export default function HomePage() {
       setFilterStartDate("");
       setFilterEndDate("");
       setSearchQuery("");
-      setTransactionsLimit(8);
+      setTypeFilters([...typeFilterAll]);
+      setTransferFromAccountId("");
+      setTransferToAccountId("");
+      setTransferSearch("");
+      setTransferMinAmount("");
+      setTransferMaxAmount("");
+      setTransactionsLimit(activeView === "transfers" ? 50 : 8);
       return;
     }
 
@@ -560,6 +607,14 @@ export default function HomePage() {
     if (!categories.some((category) => category.id === filterCategoryId)) {
       setFilterCategoryId("");
     }
+
+    if (!accounts.some((account) => account.id === transferFromAccountId)) {
+      setTransferFromAccountId("");
+    }
+
+    if (!accounts.some((account) => account.id === transferToAccountId)) {
+      setTransferToAccountId("");
+    }
   }, [
     accounts,
     categories,
@@ -569,9 +624,12 @@ export default function HomePage() {
     transactionCategoryId,
     filterAccountId,
     filterCategoryId,
+    transferFromAccountId,
+    transferToAccountId,
     filterStartDate,
     filterEndDate,
     activeMonth,
+    activeView,
   ]);
 
   useEffect(() => {
@@ -595,11 +653,11 @@ export default function HomePage() {
     setIsSigningOut(false);
   };
 
-  const openTransactionModal = () => {
+  const openTransactionModal = (nextType: string = "expense") => {
     setTransactionError(null);
     setTransactionDestinationAccountId("");
     setTransactionCategoryId("");
-    setTransactionType("expense");
+    setTransactionType(nextType);
     setIsTransactionModalOpen(true);
   };
 
@@ -903,9 +961,26 @@ export default function HomePage() {
   const canCreateTransaction = accounts.length > 0;
   const monthNet = monthlySummary.income - monthlySummary.expense;
   const economy = Math.max(monthNet, 0);
-  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const isDashboardView = activeView === "dashboard";
+  const isTransactionsView = activeView === "transactions";
+  const isTransfersView = activeView === "transfers";
+  const effectiveSearchQuery = isTransactionsView ? searchQuery : "";
+  const normalizedSearch = effectiveSearchQuery.trim().toLowerCase();
+  const effectiveTypeFilters = isTransactionsView
+    ? typeFilters
+    : [...typeFilterAll];
+  const typeFilteredTransactions = transactions.filter((transaction) => {
+    const typeValue =
+      transaction.source === "transfer"
+        ? "transfer"
+        : transaction.category?.category_type;
+    if (!typeValue) {
+      return false;
+    }
+    return effectiveTypeFilters.includes(typeValue);
+  });
   const visibleTransactions = normalizedSearch
-    ? transactions.filter((transaction) => {
+    ? typeFilteredTransactions.filter((transaction) => {
         const haystack = [
           transaction.description,
           transaction.category?.name,
@@ -919,11 +994,17 @@ export default function HomePage() {
           .toLowerCase();
         return haystack.includes(normalizedSearch);
       })
-    : transactions;
+    : typeFilteredTransactions;
+  const isTypeFilterActive =
+    isTransactionsView && typeFilters.length !== typeFilterAll.length;
   const hasActiveFilters = Boolean(
-    filterAccountId || filterCategoryId || normalizedSearch,
+    (isTransactionsView && filterAccountId) ||
+      (isTransactionsView && filterCategoryId) ||
+      normalizedSearch ||
+      isTypeFilterActive,
   );
   const showPagination = !normalizedSearch;
+  const showLocalFilter = normalizedSearch || isTypeFilterActive;
   const monthDate = new Date(`${activeMonth}-01T00:00:00`);
   const monthLabel = Number.isNaN(monthDate.getTime())
     ? activeMonth
@@ -1021,6 +1102,40 @@ export default function HomePage() {
       inactive: "text-[var(--muted)] hover:text-[var(--ink)]",
     },
   };
+  const typeFilterOptions = [
+    {
+      value: "expense",
+      label: "Despesas",
+      active: "bg-rose-100 text-rose-700",
+      inactive: "text-[var(--muted)] hover:text-rose-600",
+    },
+    {
+      value: "income",
+      label: "Receitas",
+      active: "bg-emerald-100 text-emerald-700",
+      inactive: "text-[var(--muted)] hover:text-emerald-600",
+    },
+    {
+      value: "transfer",
+      label: "Transferências",
+      active: "bg-sky-100 text-sky-700",
+      inactive: "text-[var(--muted)] hover:text-sky-600",
+    },
+  ];
+  const toggleTypeFilter = (value: string) => {
+    setTypeFilters((current) => {
+      const isActive = current.includes(value);
+      if (isActive) {
+        if (current.length === 1) {
+          return current;
+        }
+        return current.filter((item) => item !== value);
+      }
+      return typeFilterAll.filter(
+        (item) => current.includes(item) || item === value,
+      );
+    });
+  };
   const destinationAccounts = accounts.filter(
     (account) => account.id !== transactionAccountId,
   );
@@ -1030,6 +1145,89 @@ export default function HomePage() {
       : "Crie outra conta";
   const destinationSelectDisabled =
     destinationAccounts.length === 0 || !transactionAccountId;
+  const transferTransactions = transactions.filter(
+    (transaction) => transaction.source === "transfer",
+  );
+  const transferGroups = transferTransactions.reduce<
+    Record<string, typeof transferTransactions>
+  >((acc, transaction) => {
+    const key = transaction.external_id ?? transaction.id;
+    if (!acc[key]) {
+      acc[key] = [];
+    }
+    acc[key].push(transaction);
+    return acc;
+  }, {});
+  const transferItems = Object.values(transferGroups)
+    .map((group) => {
+      const numericGroup = group.filter((item) =>
+        Number.isFinite(Number(item.amount)),
+      );
+      const fromEntry = numericGroup.find((item) => Number(item.amount) < 0);
+      const toEntry = numericGroup.find((item) => Number(item.amount) > 0);
+      const amountValue = Math.max(
+        0,
+        ...numericGroup.map((item) => Math.abs(Number(item.amount))),
+      );
+      const postedAt =
+        fromEntry?.posted_at ?? toEntry?.posted_at ?? group[0]?.posted_at ?? "";
+      const description =
+        group.find((item) => item.description)?.description ?? "";
+      const fallbackId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${group[0]?.id ?? Date.now()}`;
+      return {
+        id: group[0]?.external_id ?? group[0]?.id ?? fallbackId,
+        posted_at: postedAt,
+        amount: amountValue,
+        from: fromEntry?.account ?? null,
+        to: toEntry?.account ?? null,
+        description,
+      };
+    })
+    .sort((a, b) => b.posted_at.localeCompare(a.posted_at));
+  const transferSearchNormalized = transferSearch.trim().toLowerCase();
+  const minAmountValue = Number(transferMinAmount);
+  const maxAmountValue = Number(transferMaxAmount);
+  const minAmountValid =
+    transferMinAmount.trim() !== "" && Number.isFinite(minAmountValue);
+  const maxAmountValid =
+    transferMaxAmount.trim() !== "" && Number.isFinite(maxAmountValue);
+  const filteredTransfers = transferItems.filter((item) => {
+    if (transferFromAccountId && item.from?.id !== transferFromAccountId) {
+      return false;
+    }
+    if (transferToAccountId && item.to?.id !== transferToAccountId) {
+      return false;
+    }
+    if (minAmountValid && item.amount < minAmountValue) {
+      return false;
+    }
+    if (maxAmountValid && item.amount > maxAmountValue) {
+      return false;
+    }
+    if (!transferSearchNormalized) {
+      return true;
+    }
+    const haystack = [
+      item.description,
+      item.from?.name,
+      item.to?.name,
+      item.amount,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(transferSearchNormalized);
+  });
+  const hasTransferFilters = Boolean(
+    transferFromAccountId ||
+      transferToAccountId ||
+      transferSearchNormalized ||
+      minAmountValid ||
+      maxAmountValid,
+  );
 
   return (
     <div className="relative min-h-screen overflow-hidden text-[var(--ink)]">
@@ -1057,28 +1255,41 @@ export default function HomePage() {
               </div>
               <nav className="mt-6 flex flex-1 flex-col gap-1 text-sm text-[var(--muted)]">
                 {[
-                  "Dashboard",
-                  "Lançamentos",
-                  "Contas",
-                  "Orçamento",
-                  "Relatórios",
-                  "Metas",
-                  "Regras e Automação",
-                  "Categorias",
-                  "Importações",
-                ].map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    className={`flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
-                      item === "Dashboard"
-                        ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-                        : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <span>{item}</span>
-                  </button>
-                ))}
+                  { label: "Dashboard", view: "dashboard" as const },
+                  { label: "Lançamentos", view: "transactions" as const },
+                  { label: "Transferências", view: "transfers" as const },
+                  { label: "Contas" },
+                  { label: "Orçamento" },
+                  { label: "Relatórios" },
+                  { label: "Metas" },
+                  { label: "Regras e Automação" },
+                  { label: "Categorias" },
+                  { label: "Importações" },
+                ].map((item) => {
+                  const isActive = item.view === activeView;
+                  const isEnabled = Boolean(item.view);
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      disabled={!isEnabled}
+                      onClick={() => {
+                        if (item.view) {
+                          setActiveView(item.view);
+                        }
+                      }}
+                      className={`flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
+                        isActive
+                          ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                          : isEnabled
+                            ? "hover:bg-slate-50"
+                            : "opacity-50"
+                      }`}
+                    >
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
               </nav>
               <div className="mt-6 rounded-2xl border border-[var(--border)] bg-white p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
@@ -1099,8 +1310,21 @@ export default function HomePage() {
             <div className="flex min-w-0 flex-col gap-6">
               <header className="rounded-3xl border border-[var(--border)] bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
                 <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
+                        Mês
+                      </span>
+                      <input
+                        type="month"
+                        value={activeMonth}
+                        onChange={(event) => setActiveMonth(event.target.value)}
+                        className="h-10 rounded-xl border border-[var(--border)] bg-white px-3 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                      />
+                    </div>
+                  </div>
                   <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <div className="flex h-10 w-[160px] items-center justify-center rounded-xl px-1 lg:hidden">
                         <img
                           src="/logo_gestor.png"
@@ -1108,36 +1332,42 @@ export default function HomePage() {
                           className="h-8 w-full object-contain"
                         />
                       </div>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.4em] text-[var(--muted)]">
-                          Dashboard
-                        </p>
-                        <p className="text-xl font-semibold text-[var(--ink)]">
-                          Visão geral
-                        </p>
-                        <p className="text-xs text-[var(--muted)]">
-                          Família ativa:{" "}
-                          {activeMembership?.family?.name ?? "Selecione"}
-                        </p>
+                      <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm">
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
+                          Família
+                        </span>
+                        <span className="truncate text-xs font-semibold text-[var(--ink)]">
+                          {activeMembership?.family?.name ?? "Sem família"}
+                        </span>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={openTransactionModal}
-                        className={`inline-flex h-10 items-center justify-center rounded-full bg-[var(--accent)] px-4 text-xs font-semibold text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)] ${
-                          !canCreateTransaction ? "opacity-60" : ""
-                        }`}
-                      >
-                        Novo lançamento
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                        disabled
-                      >
-                        Transferência
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openTransactionModal("expense")}
+                          disabled={!canCreateTransaction}
+                          className="inline-flex h-10 items-center justify-center rounded-full bg-rose-500 px-4 text-xs font-semibold text-white shadow-sm shadow-rose-500/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Nova despesa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openTransactionModal("income")}
+                          disabled={!canCreateTransaction}
+                          className="inline-flex h-10 items-center justify-center rounded-full bg-emerald-500 px-4 text-xs font-semibold text-white shadow-sm shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Nova receita
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openTransactionModal("transfer")}
+                          disabled={!canCreateTransaction}
+                          className="inline-flex h-10 items-center justify-center rounded-full bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm shadow-sky-500/30 transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Transferência
+                        </button>
+                      </div>
                       <button
                         type="button"
                         className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
@@ -1158,35 +1388,6 @@ export default function HomePage() {
                           {isSigningOut ? "Saindo..." : "Sair"}
                         </button>
                       </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex max-w-[260px] items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm">
-                      <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
-                        Família
-                      </span>
-                      <span className="truncate text-xs font-semibold text-[var(--ink)]">
-                        {activeMembership?.family?.name ?? "Sem família"}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
-                        Período
-                      </span>
-                      <input
-                        type="month"
-                        value={activeMonth}
-                        onChange={(event) => setActiveMonth(event.target.value)}
-                        className="h-10 rounded-xl border border-[var(--border)] bg-white px-3 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                      />
-                    </div>
-                    <div className="min-w-[220px] flex-1">
-                      <input
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                        placeholder="Buscar lançamentos, contas ou categorias..."
-                        className="h-10 w-full rounded-xl border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                      />
                     </div>
                   </div>
                 </div>
@@ -1539,109 +1740,158 @@ export default function HomePage() {
                 </section>
               ) : (
                 <main className="flex flex-col gap-6">
-                  <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 text-white shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-100">
-                        Saldo total
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {currencyFormatter.format(monthNet)}
-                      </p>
-                      <p className="mt-1 text-xs text-emerald-100">
-                        Período: {monthLabel}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 text-white shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-100">
-                        Receitas
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {currencyFormatter.format(monthlySummary.income)}
-                      </p>
-                      <p className="mt-1 text-xs text-orange-100">
-                        Período: {monthLabel}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 p-4 text-white shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-100">
-                        Despesas
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {currencyFormatter.format(monthlySummary.expense)}
-                      </p>
-                      <p className="mt-1 text-xs text-rose-100">
-                        Período: {monthLabel}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 p-4 text-white shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-100">
-                        Economia
-                      </p>
-                      <p className="mt-2 text-2xl font-semibold">
-                        {currencyFormatter.format(economy)}
-                      </p>
-                      <p className="mt-1 text-xs text-sky-100">
-                        Lançamentos: {monthlySummary.count}
-                      </p>
-                    </div>
-                  </section>
+                  {isDashboardView ? (
+                    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 text-white shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-100">
+                          Saldo total
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {currencyFormatter.format(monthNet)}
+                        </p>
+                        <p className="mt-1 text-xs text-emerald-100">
+                          Período: {monthLabel}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 p-4 text-white shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-orange-100">
+                          Receitas
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {currencyFormatter.format(monthlySummary.income)}
+                        </p>
+                        <p className="mt-1 text-xs text-orange-100">
+                          Período: {monthLabel}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 p-4 text-white shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-rose-100">
+                          Despesas
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {currencyFormatter.format(monthlySummary.expense)}
+                        </p>
+                        <p className="mt-1 text-xs text-rose-100">
+                          Período: {monthLabel}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 p-4 text-white shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-100">
+                          Economia
+                        </p>
+                        <p className="mt-2 text-2xl font-semibold">
+                          {currencyFormatter.format(economy)}
+                        </p>
+                        <p className="mt-1 text-xs text-sky-100">
+                          Lançamentos: {monthlySummary.count}
+                        </p>
+                      </div>
+                    </section>
+                  ) : null}
 
-                  <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                  {!isTransfersView ? (
+                    <section
+                      className={`grid gap-6 ${
+                        isDashboardView ? "xl:grid-cols-[minmax(0,1fr)_320px]" : ""
+                      }`}
+                    >
                     <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
                           <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                            Ultimos lançamentos
+                            {isTransactionsView ? "Lançamentos" : "Últimos lançamentos"}
                           </h3>
                           <p className="mt-2 text-sm text-[var(--muted)]">
-                            Período selecionado: {monthLabel}
+                            {isTransactionsView
+                              ? "Filtre e revise todos os lançamentos do mês."
+                              : `Período selecionado: ${monthLabel}`}
                           </p>
                         </div>
-                        {hasActiveFilters ? (
+                        {isTransactionsView && hasActiveFilters ? (
                           <button
                             type="button"
                             onClick={() => {
                               setFilterAccountId("");
                               setFilterCategoryId("");
                               setSearchQuery("");
+                              setTypeFilters([...typeFilterAll]);
                             }}
                             className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
                           >
                             Limpar filtros
                           </button>
                         ) : null}
+                        {isDashboardView ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveView("transactions")}
+                            className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
+                          >
+                            Ver lançamentos
+                          </button>
+                        ) : null}
                       </div>
 
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                        <select
-                          value={filterAccountId}
-                          onChange={(event) =>
-                            setFilterAccountId(event.target.value)
-                          }
-                          className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                        >
-                          <option value="">Todas as contas</option>
-                          {accounts.map((account) => (
-                            <option key={account.id} value={account.id}>
-                              {account.name}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          value={filterCategoryId}
-                          onChange={(event) =>
-                            setFilterCategoryId(event.target.value)
-                          }
-                          className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                        >
-                          <option value="">Todas as categorias</option>
-                          {categories.map((category) => (
-                            <option key={category.id} value={category.id}>
-                              {category.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                      {isTransactionsView ? (
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <select
+                            value={filterAccountId}
+                            onChange={(event) =>
+                              setFilterAccountId(event.target.value)
+                            }
+                            className="min-w-[180px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                          >
+                            <option value="">Todas as contas</option>
+                            {accounts.map((account) => (
+                              <option key={account.id} value={account.id}>
+                                {account.name}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={filterCategoryId}
+                            onChange={(event) =>
+                              setFilterCategoryId(event.target.value)
+                            }
+                            className="min-w-[180px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                          >
+                            <option value="">Todas as categorias</option>
+                            {categories.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="flex flex-wrap items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm">
+                            {typeFilterOptions.map((option) => {
+                              const isActive = typeFilters.includes(option.value);
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  aria-pressed={isActive}
+                                  onClick={() => toggleTypeFilter(option.value)}
+                                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                    isActive ? option.active : option.inactive
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="min-w-[220px] flex-1">
+                            <input
+                              value={searchQuery}
+                              onChange={(event) =>
+                                setSearchQuery(event.target.value)
+                              }
+                              placeholder="Buscar lançamentos, contas ou categorias..."
+                              className="h-10 w-full rounded-xl border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                            />
+                          </div>
+                        </div>
+                      ) : null}
 
                       <div className="mt-4 overflow-x-auto">
                         <table className="w-full text-sm">
@@ -1756,36 +2006,41 @@ export default function HomePage() {
                       </div>
                       {transactionsTotal !== null ? (
                         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-                          {normalizedSearch ? (
+                          {showLocalFilter ? (
                             <span>Resultados: {visibleTransactions.length}</span>
                           ) : (
                             <span>
                               Exibindo {transactions.length} de {transactionsTotal}
                             </span>
                           )}
-                          {showPagination ? (
-                            transactions.length < transactionsTotal ? (
-                              <button
-                                type="button"
-                                disabled={isLoadingTransactions}
-                                onClick={() =>
-                                  setTransactionsLimit((prev) => prev + 8)
-                                }
-                                className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                Mostrar mais
-                              </button>
+                          {isTransactionsView ? (
+                            showPagination ? (
+                              transactions.length < transactionsTotal ? (
+                                <button
+                                  type="button"
+                                  disabled={isLoadingTransactions}
+                                  onClick={() =>
+                                    setTransactionsLimit((prev) => prev + 8)
+                                  }
+                                  className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  Mostrar mais
+                                </button>
+                              ) : (
+                                <span>Fim da lista</span>
+                              )
                             ) : (
-                              <span>Fim da lista</span>
+                              <span>Filtro local aplicado</span>
                             )
                           ) : (
-                            <span>Filtro local aplicado</span>
+                            <span>Últimos lançamentos</span>
                           )}
                         </div>
                       ) : null}
                     </div>
 
-                    <aside className="space-y-6">
+                    {isDashboardView ? (
+                      <aside className="space-y-6">
                       <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
                         <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
                           Alertas
@@ -1823,7 +2078,7 @@ export default function HomePage() {
                         <div className="mt-4 flex flex-col gap-3">
                           <button
                             type="button"
-                            onClick={openTransactionModal}
+                            onClick={() => openTransactionModal("expense")}
                             className="inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)]"
                           >
                             Lançamento rápido
@@ -1936,102 +2191,257 @@ export default function HomePage() {
                           </div>
                         </div>
                       </div>
-                    </aside>
+                      </aside>
+                    ) : null}
                   </section>
+                  ) : null}
 
-                  <section className="grid gap-6 xl:grid-cols-2">
-                    <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                          Despesas por categoria
-                        </h3>
-                        <span className="text-xs font-semibold text-[var(--muted)]">
-                          {monthLabel}
-                        </span>
+                  {isTransfersView ? (
+                    <section className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                            Transferências
+                          </h3>
+                          <p className="mt-2 text-sm text-[var(--muted)]">
+                            Período selecionado: {monthLabel}
+                          </p>
+                        </div>
+                        {hasTransferFilters ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTransferFromAccountId("");
+                              setTransferToAccountId("");
+                              setTransferSearch("");
+                              setTransferMinAmount("");
+                              setTransferMaxAmount("");
+                            }}
+                            className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
+                          >
+                            Limpar filtros
+                          </button>
+                        ) : null}
                       </div>
-                      <div className="mt-5 flex flex-wrap items-center gap-6">
-                        <div
-                          className="relative h-32 w-32 rounded-full"
-                          style={{ background: donutBackground }}
+
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <select
+                          value={transferFromAccountId}
+                          onChange={(event) =>
+                            setTransferFromAccountId(event.target.value)
+                          }
+                          className="min-w-[180px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
                         >
-                          <div className="absolute inset-4 rounded-full bg-white" />
-                        </div>
-                        <div className="flex-1 space-y-3">
-                          {topExpenseItems.length === 0 ? (
-                            <p className="text-sm text-[var(--muted)]">
-                              Sem despesas no período.
-                            </p>
-                          ) : (
-                            topExpenseItems.map((item, index) => (
-                              <div
-                                key={`${item.name}-${index}`}
-                                className="flex items-center justify-between text-sm text-[var(--ink)]"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className="h-2.5 w-2.5 rounded-full"
-                                    style={{
-                                      backgroundColor:
-                                        donutColors[index % donutColors.length],
-                                    }}
-                                  />
-                                  <span>{item.name}</span>
-                                </div>
-                                <span className="font-semibold">
-                                  {currencyFormatter.format(item.total)}
-                                </span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                          Fluxo de caixa
-                        </h3>
-                        <span className="text-xs font-semibold text-[var(--muted)]">
-                          {monthLabel}
-                        </span>
-                      </div>
-                      <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-4">
-                        <svg
-                          viewBox="0 0 320 120"
-                          className="h-32 w-full"
-                          aria-hidden="true"
+                          <option value="">Conta origem</option>
+                          {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={transferToAccountId}
+                          onChange={(event) =>
+                            setTransferToAccountId(event.target.value)
+                          }
+                          className="min-w-[180px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
                         >
-                          <path
-                            d="M10 90 L60 70 L110 85 L160 50 L210 60 L260 35 L310 45"
-                            fill="none"
-                            stroke="var(--accent)"
-                            strokeWidth="3"
-                            strokeLinecap="round"
+                          <option value="">Conta destino</option>
+                          {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={transferMinAmount}
+                          onChange={(event) =>
+                            setTransferMinAmount(event.target.value)
+                          }
+                          placeholder="Valor mínimo"
+                          inputMode="decimal"
+                          className="min-w-[140px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                        />
+                        <input
+                          value={transferMaxAmount}
+                          onChange={(event) =>
+                            setTransferMaxAmount(event.target.value)
+                          }
+                          placeholder="Valor máximo"
+                          inputMode="decimal"
+                          className="min-w-[140px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                        />
+                        <div className="min-w-[220px] flex-1">
+                          <input
+                            value={transferSearch}
+                            onChange={(event) =>
+                              setTransferSearch(event.target.value)
+                            }
+                            placeholder="Buscar por conta ou descrição..."
+                            className="h-10 w-full rounded-xl border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
                           />
-                          <path
-                            d="M10 90 L60 70 L110 85 L160 50 L210 60 L260 35 L310 45 L310 120 L10 120 Z"
-                            fill="rgba(37, 99, 235, 0.12)"
-                          />
-                        </svg>
-                        <div className="mt-3 flex justify-between text-xs text-[var(--muted)]">
-                          <span>Semana 1</span>
-                          <span>Semana 2</span>
-                          <span>Semana 3</span>
-                          <span>Semana 4</span>
                         </div>
                       </div>
-                    </div>
-                  </section>
 
-                  <details
-                    className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm"
-                    open={accounts.length === 0 || categories.length === 0}
-                  >
-                    <summary className="cursor-pointer text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                      Cadastros base
-                    </summary>
-                    <div className="mt-5 grid gap-6 lg:grid-cols-2">
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                            <tr className="border-b border-[var(--border)]">
+                              <th className="py-2 text-left font-semibold">
+                                Data
+                              </th>
+                              <th className="py-2 text-left font-semibold">
+                                Origem
+                              </th>
+                              <th className="py-2 text-left font-semibold">
+                                Destino
+                              </th>
+                              <th className="py-2 text-left font-semibold">
+                                Descrição
+                              </th>
+                              <th className="py-2 text-right font-semibold">
+                                Valor
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredTransfers.length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="py-4 text-sm text-[var(--muted)]"
+                                >
+                                  Nenhuma transferência encontrada.
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredTransfers.map((transfer) => (
+                                <tr
+                                  key={transfer.id}
+                                  className="border-b border-[var(--border)] last:border-b-0"
+                                >
+                                  <td className="py-3 text-sm text-[var(--muted)]">
+                                    {formatDate(transfer.posted_at)}
+                                  </td>
+                                  <td className="py-3 text-sm text-[var(--ink)]">
+                                    {transfer.from?.name ?? "Conta"}
+                                  </td>
+                                  <td className="py-3 text-sm text-[var(--ink)]">
+                                    {transfer.to?.name ?? "Conta"}
+                                  </td>
+                                  <td className="py-3 text-sm text-[var(--muted)]">
+                                    {transfer.description || "Transferência"}
+                                  </td>
+                                  <td className="py-3 text-right text-sm font-semibold text-sky-600">
+                                    {currencyFormatter.format(transfer.amount)}
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+                        <span>Transferências: {filteredTransfers.length}</span>
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {isDashboardView ? (
+                    <>
+                      <section className="grid gap-6 xl:grid-cols-2">
+                        <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                              Despesas por categoria
+                            </h3>
+                            <span className="text-xs font-semibold text-[var(--muted)]">
+                              {monthLabel}
+                            </span>
+                          </div>
+                          <div className="mt-5 flex flex-wrap items-center gap-6">
+                            <div
+                              className="relative h-32 w-32 rounded-full"
+                              style={{ background: donutBackground }}
+                            >
+                              <div className="absolute inset-4 rounded-full bg-white" />
+                            </div>
+                            <div className="flex-1 space-y-3">
+                              {topExpenseItems.length === 0 ? (
+                                <p className="text-sm text-[var(--muted)]">
+                                  Sem despesas no período.
+                                </p>
+                              ) : (
+                                topExpenseItems.map((item, index) => (
+                                  <div
+                                    key={`${item.name}-${index}`}
+                                    className="flex items-center justify-between text-sm text-[var(--ink)]"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="h-2.5 w-2.5 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            donutColors[index % donutColors.length],
+                                        }}
+                                      />
+                                      <span>{item.name}</span>
+                                    </div>
+                                    <span className="font-semibold">
+                                      {currencyFormatter.format(item.total)}
+                                    </span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                              Fluxo de caixa
+                            </h3>
+                            <span className="text-xs font-semibold text-[var(--muted)]">
+                              {monthLabel}
+                            </span>
+                          </div>
+                          <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-4">
+                            <svg
+                              viewBox="0 0 320 120"
+                              className="h-32 w-full"
+                              aria-hidden="true"
+                            >
+                              <path
+                                d="M10 90 L60 70 L110 85 L160 50 L210 60 L260 35 L310 45"
+                                fill="none"
+                                stroke="var(--accent)"
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                              />
+                              <path
+                                d="M10 90 L60 70 L110 85 L160 50 L210 60 L260 35 L310 45 L310 120 L10 120 Z"
+                                fill="rgba(37, 99, 235, 0.12)"
+                              />
+                            </svg>
+                            <div className="mt-3 flex justify-between text-xs text-[var(--muted)]">
+                              <span>Semana 1</span>
+                              <span>Semana 2</span>
+                              <span>Semana 3</span>
+                              <span>Semana 4</span>
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+
+                      <details
+                        className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm"
+                        open={accounts.length === 0 || categories.length === 0}
+                      >
+                        <summary className="cursor-pointer text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                          Cadastros base
+                        </summary>
+                        <div className="mt-5 grid gap-6 lg:grid-cols-2">
                       <div>
                         <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
                           Contas
@@ -2230,6 +2640,8 @@ export default function HomePage() {
                       </div>
                     </div>
                   </details>
+                    </>
+                  ) : null}
                 </main>
               )}
             </div>
