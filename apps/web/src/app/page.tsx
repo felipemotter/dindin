@@ -1716,146 +1716,10 @@ export default function HomePage() {
                         className="h-8 w-full max-w-[140px] object-contain"
                       />
                     </div>
-                    <div className="lg:hidden">
-                      <div ref={monthPickerRef} className="relative">
-                        <button
-                          type="button"
-                          aria-haspopup="dialog"
-                          aria-expanded={isMonthPickerOpen}
-                          onClick={() => {
-                            setMonthPickerYear(activeYear);
-                            setIsMonthPickerOpen((prev) => !prev);
-                          }}
-                          className="flex h-10 items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 text-[11px] font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                        >
-                          <span>{activeMonthLabel}</span>
-                          <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            className="h-4 w-4 text-[var(--muted)]"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M6 9l6 6 6-6" />
-                          </svg>
-                        </button>
-                        {isMonthPickerOpen ? (
-                          <div className="absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-2xl border border-[var(--border)] bg-white p-3 shadow-[var(--shadow)]">
-                            <div className="flex items-center justify-between px-2 py-1">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setMonthPickerYear((prev) => prev - 1)
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
-                                aria-label="Ano anterior"
-                              >
-                                <svg
-                                  aria-hidden="true"
-                                  viewBox="0 0 24 24"
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M15 18l-6-6 6-6" />
-                                </svg>
-                              </button>
-                              <span className="text-sm font-semibold text-[var(--ink)]">
-                                {monthPickerYear}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setMonthPickerYear((prev) => prev + 1)
-                                }
-                                className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
-                                aria-label="Próximo ano"
-                              >
-                                <svg
-                                  aria-hidden="true"
-                                  viewBox="0 0 24 24"
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M9 6l6 6-6 6" />
-                                </svg>
-                              </button>
-                            </div>
-                            <div className="mt-2 grid grid-cols-3 gap-2">
-                              {monthNames.map((monthName, index) => {
-                                const isActive =
-                                  index === activeMonthIndex &&
-                                  monthPickerYear === activeYear;
-                                return (
-                                  <button
-                                    key={`${monthName}-mobile`}
-                                    type="button"
-                                    onClick={() => handleSelectMonth(index)}
-                                    className={`rounded-xl px-2 py-2 text-xs font-semibold transition ${
-                                      isActive
-                                        ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-                                        : "text-[var(--ink)] hover:bg-slate-50"
-                                    }`}
-                                  >
-                                    {monthName}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <div className="mt-3 grid grid-cols-3 gap-2">
-                              {[
-                                {
-                                  label: `${monthNames[prevMonth.index]} ${prevMonth.year}`,
-                                  value: prevMonth,
-                                },
-                                {
-                                  label: `${monthNames[activeMonthIndex]} ${activeYear}`,
-                                  value: { year: activeYear, index: activeMonthIndex },
-                                },
-                                {
-                                  label: `${monthNames[nextMonth.index]} ${nextMonth.year}`,
-                                  value: nextMonth,
-                                },
-                              ].map((item, idx) => {
-                                const isCurrent = idx === 1;
-                                return (
-                                  <button
-                                    key={`${item.label}-mobile`}
-                                    type="button"
-                                    onClick={() =>
-                                      handleSelectMonth(
-                                        item.value.index,
-                                        item.value.year,
-                                      )
-                                    }
-                                    className={`rounded-full border px-2 py-2 text-[11px] font-semibold transition ${
-                                      isCurrent
-                                        ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
-                                        : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--ink)]"
-                                    }`}
-                                  >
-                                    {item.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="hidden w-full justify-center lg:absolute lg:left-1/2 lg:top-1/2 lg:flex lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2">
-                    <div ref={monthPickerRef} className="relative">
+                    <div
+                      ref={monthPickerRef}
+                      className="relative lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2"
+                    >
                       <button
                         type="button"
                         aria-haspopup="dialog"
@@ -1864,7 +1728,7 @@ export default function HomePage() {
                           setMonthPickerYear(activeYear);
                           setIsMonthPickerOpen((prev) => !prev);
                         }}
-                        className="flex h-11 items-center gap-3 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+                        className="flex h-10 items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 text-[11px] font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)] lg:h-11 lg:px-4 lg:text-sm"
                       >
                         <span>{activeMonthLabel}</span>
                         <svg
@@ -1881,13 +1745,11 @@ export default function HomePage() {
                         </svg>
                       </button>
                       {isMonthPickerOpen ? (
-                        <div className="absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-2xl border border-[var(--border)] bg-white p-3 shadow-[var(--shadow)]">
+                        <div className="absolute right-0 top-full z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-2xl border border-[var(--border)] bg-white p-3 shadow-[var(--shadow)] lg:left-1/2 lg:right-auto lg:-translate-x-1/2">
                           <div className="flex items-center justify-between px-2 py-1">
                             <button
                               type="button"
-                              onClick={() =>
-                                setMonthPickerYear((prev) => prev - 1)
-                              }
+                              onClick={() => setMonthPickerYear((prev) => prev - 1)}
                               className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
                               aria-label="Ano anterior"
                             >
@@ -1909,9 +1771,7 @@ export default function HomePage() {
                             </span>
                             <button
                               type="button"
-                              onClick={() =>
-                                setMonthPickerYear((prev) => prev + 1)
-                              }
+                              onClick={() => setMonthPickerYear((prev) => prev + 1)}
                               className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
                               aria-label="Próximo ano"
                             >
