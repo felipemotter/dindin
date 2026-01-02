@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { getAuthedSupabaseClient, getSupabaseClient } from "@/lib/supabase/client";
 
@@ -40,6 +40,7 @@ export default function HomePage() {
   const [session, setSession] = useState<Session | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [activeView, setActiveView] = useState<
     "dashboard" | "transactions" | "transfers"
   >("dashboard");
@@ -140,6 +141,11 @@ export default function HomePage() {
   const [transferMaxAmount, setTransferMaxAmount] = useState("");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [monthPickerYear, setMonthPickerYear] = useState(() =>
+    new Date().getFullYear(),
+  );
+  const monthPickerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -166,6 +172,33 @@ export default function HomePage() {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  useEffect(() => {
+    if (!isMonthPickerOpen) {
+      return;
+    }
+    const handleClick = (event: MouseEvent | TouchEvent) => {
+      if (
+        monthPickerRef.current &&
+        !monthPickerRef.current.contains(event.target as Node)
+      ) {
+        setIsMonthPickerOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMonthPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [isMonthPickerOpen]);
 
   const loadMemberships = async (userId: string, accessToken: string) => {
     setIsLoadingMemberships(true);
@@ -1013,6 +1046,10 @@ export default function HomePage() {
         .replace(/^./, (char) => char.toUpperCase());
   const userInitial =
     session?.user.email?.trim().charAt(0).toUpperCase() ?? "U";
+  const sidebarLogoSrc = isSidebarCollapsed
+    ? "/logo_gestor_quadrado.png"
+    : "/logo_gestor.png";
+  const signOutLabel = isSigningOut ? "Saindo..." : "Sair";
   const formatDate = (value: string) => {
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {
@@ -1228,6 +1265,244 @@ export default function HomePage() {
       minAmountValid ||
       maxAmountValid,
   );
+  const monthNames = [
+    "JAN",
+    "FEV",
+    "MAR",
+    "ABR",
+    "MAI",
+    "JUN",
+    "JUL",
+    "AGO",
+    "SET",
+    "OUT",
+    "NOV",
+    "DEZ",
+  ];
+  const monthNamesFull = [
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
+  ];
+  const activeMonthParts = activeMonth.split("-").map(Number);
+  const fallbackDate = new Date();
+  const activeYear = Number.isFinite(activeMonthParts[0])
+    ? activeMonthParts[0]
+    : fallbackDate.getFullYear();
+  const activeMonthIndex = Number.isFinite(activeMonthParts[1])
+    ? Math.max(0, Math.min(11, activeMonthParts[1] - 1))
+    : fallbackDate.getMonth();
+  const activeMonthLabel = `${monthNamesFull[activeMonthIndex]} ${activeYear}`;
+  const prevMonth =
+    activeMonthIndex === 0
+      ? { year: activeYear - 1, index: 11 }
+      : { year: activeYear, index: activeMonthIndex - 1 };
+  const nextMonth =
+    activeMonthIndex === 11
+      ? { year: activeYear + 1, index: 0 }
+      : { year: activeYear, index: activeMonthIndex + 1 };
+
+  useEffect(() => {
+    setMonthPickerYear(activeYear);
+  }, [activeYear]);
+
+  const handleSelectMonth = (
+    monthIndex: number,
+    year = monthPickerYear,
+  ) => {
+    const monthValue = String(monthIndex + 1).padStart(2, "0");
+    setActiveMonth(`${year}-${monthValue}`);
+    setIsMonthPickerOpen(false);
+  };
+  const navItems = [
+    {
+      label: "Dashboard",
+      view: "dashboard" as const,
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="3" width="7" height="7" rx="2" />
+          <rect x="14" y="3" width="7" height="7" rx="2" />
+          <rect x="14" y="14" width="7" height="7" rx="2" />
+          <rect x="3" y="14" width="7" height="7" rx="2" />
+        </svg>
+      ),
+    },
+    {
+      label: "Lançamentos",
+      view: "transactions" as const,
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M9 6h12" />
+          <path d="M9 12h12" />
+          <path d="M9 18h12" />
+          <circle cx="5" cy="6" r="1.5" />
+          <circle cx="5" cy="12" r="1.5" />
+          <circle cx="5" cy="18" r="1.5" />
+        </svg>
+      ),
+    },
+    {
+      label: "Contas",
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="6" width="18" height="12" rx="2" />
+          <path d="M3 10h18" />
+          <path d="M16 14h2" />
+        </svg>
+      ),
+    },
+    {
+      label: "Orçamento",
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 3v9h9" />
+          <path d="M12 3a9 9 0 1 0 9 9" />
+        </svg>
+      ),
+    },
+    {
+      label: "Relatórios",
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 19h16" />
+          <rect x="6" y="10" width="3" height="7" rx="1" />
+          <rect x="11" y="7" width="3" height="10" rx="1" />
+          <rect x="16" y="13" width="3" height="4" rx="1" />
+        </svg>
+      ),
+    },
+    {
+      label: "Metas",
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ),
+    },
+    {
+      label: "Regras e Automação",
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 6h16" />
+          <path d="M4 12h16" />
+          <path d="M4 18h16" />
+          <circle cx="9" cy="6" r="2" />
+          <circle cx="15" cy="12" r="2" />
+          <circle cx="11" cy="18" r="2" />
+        </svg>
+      ),
+    },
+    {
+      label: "Categorias",
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M20 10l-6-6H6a2 2 0 0 0-2 2v8l6 6 10-10z" />
+          <circle cx="9" cy="7" r="1.5" />
+        </svg>
+      ),
+    },
+    {
+      label: "Importações",
+      icon: ({ className = "h-5 w-5" }) => (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className={className}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 3v12" />
+          <path d="M8 9l4 4 4-4" />
+          <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
     <div className="relative min-h-screen overflow-hidden text-[var(--ink)]">
@@ -1236,36 +1511,64 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,23,42,0.05)_1px,transparent_1px),linear-gradient(180deg,rgba(15,23,42,0.05)_1px,transparent_1px)] bg-[size:80px_80px] opacity-35" />
       </div>
 
-      <div className="relative mx-auto min-h-screen w-full max-w-7xl px-6 py-6">
+      <div className="relative mx-auto min-h-screen w-full max-w-none px-2 py-6">
         {isChecking ? (
           <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted)]">
             Carregando informações...
           </div>
         ) : session ? (
-          <div className="grid min-h-[calc(100vh-3rem)] gap-6 lg:grid-cols-[220px_1fr]">
-            <aside className="hidden lg:flex lg:flex-col rounded-3xl border border-[var(--border)] bg-white/90 p-5 shadow-sm">
-              <div className="flex items-center">
-                <div className="flex h-14 w-full items-center justify-center rounded-2xl px-1">
+          <div className="relative min-h-[calc(100vh-3rem)]">
+            <aside
+              className={`hidden lg:flex lg:flex-col lg:fixed lg:top-6 lg:left-2 lg:z-20 lg:h-[calc(100vh-3rem)] rounded-3xl border border-[var(--border)] bg-white/90 shadow-sm ${
+                isSidebarCollapsed ? "p-3 lg:w-[88px]" : "p-5 lg:w-[220px]"
+              }`}
+            >
+              <div
+                className={`flex ${
+                  isSidebarCollapsed
+                    ? "flex-col items-center gap-2"
+                    : "items-center justify-between"
+                }`}
+              >
+                <div
+                  className={`flex items-center justify-center rounded-2xl px-1 ${
+                    isSidebarCollapsed ? "h-12 w-12" : "h-14 w-full"
+                  }`}
+                >
                   <img
-                    src="/logo_gestor.png"
+                    src={sidebarLogoSrc}
                     alt="Gestor"
-                    className="h-10 w-full object-contain"
+                    className={
+                      isSidebarCollapsed
+                        ? "h-10 w-auto max-w-[40px] object-contain"
+                        : "h-10 w-full object-contain"
+                    }
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+                  aria-label={isSidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:text-[var(--accent-strong)]"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className={`h-4 w-4 transition ${
+                      isSidebarCollapsed ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M15 18l-6-6 6-6" />
+                  </svg>
+                </button>
               </div>
               <nav className="mt-6 flex flex-1 flex-col gap-1 text-sm text-[var(--muted)]">
-                {[
-                  { label: "Dashboard", view: "dashboard" as const },
-                  { label: "Lançamentos", view: "transactions" as const },
-                  { label: "Transferências", view: "transfers" as const },
-                  { label: "Contas" },
-                  { label: "Orçamento" },
-                  { label: "Relatórios" },
-                  { label: "Metas" },
-                  { label: "Regras e Automação" },
-                  { label: "Categorias" },
-                  { label: "Importações" },
-                ].map((item) => {
+                {navItems.map((item) => {
                   const isActive = item.view === activeView;
                   const isEnabled = Boolean(item.view);
                   return (
@@ -1273,12 +1576,15 @@ export default function HomePage() {
                       key={item.label}
                       type="button"
                       disabled={!isEnabled}
+                      title={item.label}
                       onClick={() => {
                         if (item.view) {
                           setActiveView(item.view);
                         }
                       }}
-                      className={`flex items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
+                      className={`flex items-center rounded-xl text-left font-semibold transition ${
+                        isSidebarCollapsed ? "justify-center px-2 py-2" : "justify-between px-3 py-2 text-sm"
+                      } ${
                         isActive
                           ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
                           : isEnabled
@@ -1286,109 +1592,283 @@ export default function HomePage() {
                             : "opacity-50"
                       }`}
                     >
-                      <span>{item.label}</span>
+                      {isSidebarCollapsed ? (
+                        <>
+                          {item.icon({ className: "h-5 w-5" })}
+                          <span className="sr-only">{item.label}</span>
+                        </>
+                      ) : (
+                        <span>{item.label}</span>
+                      )}
                     </button>
                   );
                 })}
               </nav>
-              <div className="mt-6 rounded-2xl border border-[var(--border)] bg-white p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                  Sessão
-                </p>
-                <p className="mt-2 truncate text-[10px] font-semibold text-[var(--ink)]">
-                  {session.user.email ?? "usuário"}
-                </p>
-                <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted)]">
-                  <span>Família</span>
-                  <span className="font-semibold text-[var(--ink)]">
-                    {activeMembership?.family?.name ?? "Selecione"}
-                  </span>
+              <div
+                className={`mt-6 rounded-2xl border border-[var(--border)] bg-white shadow-sm ${
+                  isSidebarCollapsed ? "p-3" : "p-4"
+                }`}
+              >
+                <div
+                  className={`flex ${
+                    isSidebarCollapsed ? "flex-col items-center gap-2" : "flex-col gap-3"
+                  }`}
+                >
+                  {!isSidebarCollapsed ? (
+                    <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+                      <span>Família</span>
+                      <span className="ml-2 truncate font-semibold text-[var(--ink)]">
+                        {activeMembership?.family?.name ?? "Selecione"}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div
+                    className={`flex ${
+                      isSidebarCollapsed ? "flex-col items-center gap-2" : "items-center gap-3"
+                    }`}
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-white text-xs font-semibold text-[var(--ink)]">
+                      {userInitial}
+                    </div>
+                    {!isSidebarCollapsed ? (
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                          Sessão
+                        </p>
+                        <p
+                          className="truncate text-[11px] font-semibold text-[var(--ink)]"
+                          title={session.user.email ?? "usuário"}
+                        >
+                          {session.user.email ?? "usuário"}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={signOutLabel}
+                    title={signOutLabel}
+                    disabled={isSigningOut}
+                    onClick={handleSignOut}
+                    className={`inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] ${
+                      isSidebarCollapsed
+                        ? "h-8 w-8"
+                        : "h-8 w-full px-3 text-[11px]"
+                    }`}
+                  >
+                    {isSidebarCollapsed ? (
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-4 w-4"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M16 17l5-5-5-5" />
+                        <path d="M21 12H9" />
+                        <path d="M12 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" />
+                      </svg>
+                    ) : (
+                      signOutLabel
+                    )}
+                  </button>
                 </div>
               </div>
             </aside>
 
-            <div className="flex min-w-0 flex-col gap-6">
+            <div
+              className={`flex min-w-0 flex-col gap-6 ${
+                isSidebarCollapsed ? "lg:pl-[112px]" : "lg:pl-[244px]"
+              }`}
+            >
               <header className="rounded-3xl border border-[var(--border)] bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
-                        Mês
-                      </span>
-                      <input
-                        type="month"
-                        value={activeMonth}
-                        onChange={(event) => setActiveMonth(event.target.value)}
-                        className="h-10 rounded-xl border border-[var(--border)] bg-white px-3 text-xs font-semibold text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                <div className="relative flex flex-wrap items-center gap-3 lg:flex-nowrap">
+                  <div className="order-1 flex min-w-0 items-center gap-3 lg:order-none">
+                    <div className="flex h-10 w-[160px] items-center justify-center rounded-xl px-1 lg:hidden">
+                      <img
+                        src="/logo_gestor.png"
+                        alt="Gestor"
+                        className="h-8 w-full object-contain"
                       />
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex h-10 w-[160px] items-center justify-center rounded-xl px-1 lg:hidden">
-                        <img
-                          src="/logo_gestor.png"
-                          alt="Gestor"
-                          className="h-8 w-full object-contain"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm">
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
-                          Família
-                        </span>
-                        <span className="truncate text-xs font-semibold text-[var(--ink)]">
-                          {activeMembership?.family?.name ?? "Sem família"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openTransactionModal("expense")}
-                          disabled={!canCreateTransaction}
-                          className="inline-flex h-10 items-center justify-center rounded-full bg-rose-500 px-4 text-xs font-semibold text-white shadow-sm shadow-rose-500/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Nova despesa
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openTransactionModal("income")}
-                          disabled={!canCreateTransaction}
-                          className="inline-flex h-10 items-center justify-center rounded-full bg-emerald-500 px-4 text-xs font-semibold text-white shadow-sm shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Nova receita
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openTransactionModal("transfer")}
-                          disabled={!canCreateTransaction}
-                          className="inline-flex h-10 items-center justify-center rounded-full bg-sky-500 px-4 text-xs font-semibold text-white shadow-sm shadow-sky-500/30 transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Transferência
-                        </button>
-                      </div>
+                  <div className="order-2 flex w-full justify-center lg:absolute lg:left-1/2 lg:top-1/2 lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2">
+                    <div ref={monthPickerRef} className="relative">
                       <button
                         type="button"
-                        className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                        disabled
+                        aria-haspopup="dialog"
+                        aria-expanded={isMonthPickerOpen}
+                        onClick={() => {
+                          setMonthPickerYear(activeYear);
+                          setIsMonthPickerOpen((prev) => !prev);
+                        }}
+                        className="flex h-11 items-center gap-3 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
                       >
-                        Importar
-                      </button>
-                      <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-2 py-1 shadow-sm">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-white text-xs font-semibold text-[var(--ink)]">
-                          {userInitial}
-                        </div>
-                        <button
-                          type="button"
-                          className="inline-flex h-8 items-center justify-center rounded-full px-3 text-xs font-semibold text-[var(--ink)] transition hover:text-[var(--accent-strong)]"
-                          disabled={isSigningOut}
-                          onClick={handleSignOut}
+                        <span>{activeMonthLabel}</span>
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4 text-[var(--muted)]"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                         >
-                          {isSigningOut ? "Saindo..." : "Sair"}
-                        </button>
-                      </div>
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </button>
+                      {isMonthPickerOpen ? (
+                        <div className="absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-2xl border border-[var(--border)] bg-white p-3 shadow-[var(--shadow)]">
+                          <div className="flex items-center justify-between px-2 py-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setMonthPickerYear((prev) => prev - 1)
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
+                              aria-label="Ano anterior"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M15 18l-6-6 6-6" />
+                              </svg>
+                            </button>
+                            <span className="text-sm font-semibold text-[var(--ink)]">
+                              {monthPickerYear}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setMonthPickerYear((prev) => prev + 1)
+                              }
+                              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
+                              aria-label="Próximo ano"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M9 6l6 6-6 6" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="mt-2 grid grid-cols-3 gap-2">
+                            {monthNames.map((monthName, index) => {
+                              const isActive =
+                                index === activeMonthIndex &&
+                                monthPickerYear === activeYear;
+                              return (
+                                <button
+                                  key={monthName}
+                                  type="button"
+                                  onClick={() => handleSelectMonth(index)}
+                                  className={`rounded-xl px-2 py-2 text-xs font-semibold transition ${
+                                    isActive
+                                      ? "bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                                      : "text-[var(--ink)] hover:bg-slate-50"
+                                  }`}
+                                >
+                                  {monthName}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-3 grid grid-cols-3 gap-2">
+                            {[
+                              {
+                                label: `${monthNames[prevMonth.index]} ${prevMonth.year}`,
+                                value: prevMonth,
+                              },
+                              {
+                                label: `${monthNames[activeMonthIndex]} ${activeYear}`,
+                                value: { year: activeYear, index: activeMonthIndex },
+                              },
+                              {
+                                label: `${monthNames[nextMonth.index]} ${nextMonth.year}`,
+                                value: nextMonth,
+                              },
+                            ].map((item, idx) => {
+                              const isCurrent = idx === 1;
+                              return (
+                                <button
+                                  key={item.label}
+                                  type="button"
+                                  onClick={() =>
+                                    handleSelectMonth(
+                                      item.value.index,
+                                      item.value.year,
+                                    )
+                                  }
+                                  className={`rounded-full border px-2 py-2 text-[11px] font-semibold transition ${
+                                    isCurrent
+                                      ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-strong)]"
+                                      : "border-[var(--border)] text-[var(--muted)] hover:border-[var(--accent)] hover:text-[var(--ink)]"
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
+                  </div>
+                  <div className="order-3 flex flex-wrap items-center gap-2 lg:ml-auto">
+                    <div className="flex h-11 items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm">
+                      <span className="px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                        Criar
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => openTransactionModal("expense")}
+                        disabled={!canCreateTransaction}
+                        className="inline-flex h-9 items-center justify-center rounded-full bg-rose-500 px-3 text-xs font-semibold text-white shadow-sm shadow-rose-500/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Despesa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openTransactionModal("income")}
+                        disabled={!canCreateTransaction}
+                        className="inline-flex h-9 items-center justify-center rounded-full bg-emerald-500 px-3 text-xs font-semibold text-white shadow-sm shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Receita
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openTransactionModal("transfer")}
+                        disabled={!canCreateTransaction}
+                        className="inline-flex h-9 items-center justify-center rounded-full bg-sky-500 px-3 text-xs font-semibold text-white shadow-sm shadow-sky-500/30 transition hover:bg-sky-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Transferência
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+                      disabled
+                    >
+                      Importar
+                    </button>
                   </div>
                 </div>
               </header>
