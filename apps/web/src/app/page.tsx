@@ -25,6 +25,7 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
 const shortDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "2-digit",
+  year: "numeric",
   timeZone: BRAZIL_TZ,
 });
 const calendarDateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -227,6 +228,21 @@ export default function HomePage() {
     return parts ? parts.year : new Date().getFullYear();
   });
   const monthPickerRef = useRef<HTMLDivElement | null>(null);
+  const [isFilterCalendarOpen, setIsFilterCalendarOpen] = useState(false);
+  const [filterCalendarTarget, setFilterCalendarTarget] = useState<
+    "start" | "end" | null
+  >(null);
+  const [filterCalendarTempDate, setFilterCalendarTempDate] = useState(() =>
+    getBrazilToday(),
+  );
+  const [filterCalendarMonth, setFilterCalendarMonth] = useState(() => {
+    const parts = getDateParts(getBrazilToday());
+    return parts ? parts.monthIndex : new Date().getMonth();
+  });
+  const [filterCalendarYear, setFilterCalendarYear] = useState(() => {
+    const parts = getDateParts(getBrazilToday());
+    return parts ? parts.year : new Date().getFullYear();
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -258,7 +274,8 @@ export default function HomePage() {
     if (typeof document === "undefined") {
       return undefined;
     }
-    const shouldLockScroll = isTransactionModalOpen || isMobileMenuOpen;
+    const shouldLockScroll =
+      isTransactionModalOpen || isMobileMenuOpen || isFilterCalendarOpen;
     if (!shouldLockScroll) {
       return undefined;
     }
@@ -268,7 +285,7 @@ export default function HomePage() {
     return () => {
       body.style.overflow = previousOverflow;
     };
-  }, [isTransactionModalOpen, isMobileMenuOpen]);
+  }, [isTransactionModalOpen, isMobileMenuOpen, isFilterCalendarOpen]);
 
   useEffect(() => {
     if (!isMonthPickerOpen) {
@@ -618,24 +635,30 @@ export default function HomePage() {
       {
         accountId: filterAccountId || undefined,
         categoryId: filterCategoryId || undefined,
-        startDate: filterStartDate || undefined,
-        endDate: filterEndDate || undefined,
+        startDate:
+          (isTransactionsView
+            ? filterStartDate
+            : activeMonthRange.startDate) || undefined,
+        endDate:
+          (isTransactionsView
+            ? filterEndDate
+            : activeMonthRange.endDate) || undefined,
       },
     );
     loadMonthlySummary(
       accounts.map((account) => account.id),
       session.access_token,
       {
-        startDate: filterStartDate || undefined,
-        endDate: filterEndDate || undefined,
+        startDate: activeMonthRange.startDate || undefined,
+        endDate: activeMonthRange.endDate || undefined,
       },
     );
     loadAccountBalances(
       accounts.map((account) => account.id),
       session.access_token,
       {
-        startDate: filterStartDate || undefined,
-        endDate: filterEndDate || undefined,
+        startDate: activeMonthRange.startDate || undefined,
+        endDate: activeMonthRange.endDate || undefined,
       },
     );
   }, [
@@ -647,6 +670,8 @@ export default function HomePage() {
     filterCategoryId,
     filterStartDate,
     filterEndDate,
+    activeMonth,
+    activeView,
   ]);
 
   useEffect(() => {
@@ -787,6 +812,20 @@ export default function HomePage() {
     }
   }, [isTransactionModalOpen]);
 
+  useEffect(() => {
+    if (!isFilterCalendarOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsFilterCalendarOpen(false);
+        setFilterCalendarTarget(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFilterCalendarOpen]);
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
     await supabase.auth.signOut();
@@ -886,6 +925,71 @@ export default function HomePage() {
     }
     setCalendarTempDate(transactionDate);
     setIsCalendarOpen(true);
+  };
+
+  const resetFilterDateRange = () => {
+    const { startDate, endDate } = getMonthRange(activeMonth);
+    if (!startDate || !endDate) {
+      return;
+    }
+    setFilterStartDate(startDate);
+    setFilterEndDate(endDate);
+  };
+
+  const handleFilterStartDateChange = (value: string) => {
+    if (!value) {
+      resetFilterDateRange();
+      return;
+    }
+    setFilterStartDate(value);
+    if (filterEndDate && value > filterEndDate) {
+      setFilterEndDate(value);
+    }
+  };
+
+  const handleFilterEndDateChange = (value: string) => {
+    if (!value) {
+      resetFilterDateRange();
+      return;
+    }
+    setFilterEndDate(value);
+    if (filterStartDate && value < filterStartDate) {
+      setFilterStartDate(value);
+    }
+  };
+
+  const openFilterCalendar = (target: "start" | "end") => {
+    const { startDate, endDate } = getMonthRange(activeMonth);
+    const fallbackDate =
+      target === "start"
+        ? filterStartDate || startDate || getBrazilToday()
+        : filterEndDate || endDate || getBrazilToday();
+    const fallbackParts = getDateParts(fallbackDate);
+    if (fallbackParts) {
+      setFilterCalendarMonth(fallbackParts.monthIndex);
+      setFilterCalendarYear(fallbackParts.year);
+    }
+    setFilterCalendarTempDate(fallbackDate);
+    setFilterCalendarTarget(target);
+    setIsFilterCalendarOpen(true);
+  };
+
+  const closeFilterCalendar = () => {
+    setIsFilterCalendarOpen(false);
+    setFilterCalendarTarget(null);
+  };
+
+  const applyFilterCalendar = () => {
+    if (!filterCalendarTarget) {
+      closeFilterCalendar();
+      return;
+    }
+    if (filterCalendarTarget === "start") {
+      handleFilterStartDateChange(filterCalendarTempDate);
+    } else {
+      handleFilterEndDateChange(filterCalendarTempDate);
+    }
+    closeFilterCalendar();
   };
 
   const handleCreateAccount = async (event: FormEvent<HTMLFormElement>) => {
@@ -1111,6 +1215,14 @@ export default function HomePage() {
 
     setTransactionAmount("");
     setTransactionDescription("");
+    const monthRange = getMonthRange(activeMonth);
+    const isTransactionsScreen = activeView === "transactions";
+    const rangeStartDate = isTransactionsScreen
+      ? filterStartDate || monthRange.startDate
+      : monthRange.startDate;
+    const rangeEndDate = isTransactionsScreen
+      ? filterEndDate || monthRange.endDate
+      : monthRange.endDate;
     await loadTransactions(
       accounts.map((account) => account.id),
       session.access_token,
@@ -1118,8 +1230,8 @@ export default function HomePage() {
       {
         accountId: filterAccountId || undefined,
         categoryId: filterCategoryId || undefined,
-        startDate: filterStartDate || undefined,
-        endDate: filterEndDate || undefined,
+        startDate: rangeStartDate || undefined,
+        endDate: rangeEndDate || undefined,
       },
     );
     setIsCreatingTransaction(false);
@@ -1171,17 +1283,29 @@ export default function HomePage() {
     : typeFilteredTransactions;
   const isTypeFilterActive =
     isTransactionsView && typeFilters.length !== typeFilterAll.length;
+  const activeMonthRange = getMonthRange(activeMonth);
+  const isCustomDateRange = Boolean(
+    isTransactionsView &&
+      filterStartDate &&
+      filterEndDate &&
+      activeMonthRange.startDate &&
+      activeMonthRange.endDate &&
+      (filterStartDate !== activeMonthRange.startDate ||
+        filterEndDate !== activeMonthRange.endDate),
+  );
   const hasActiveFilters = Boolean(
     (isTransactionsView && filterAccountId) ||
       (isTransactionsView && filterCategoryId) ||
       normalizedSearch ||
-      isTypeFilterActive,
+      isTypeFilterActive ||
+      isCustomDateRange,
   );
   const activeFiltersCount = [
     filterAccountId ? 1 : 0,
     filterCategoryId ? 1 : 0,
     normalizedSearch ? 1 : 0,
     isTypeFilterActive ? 1 : 0,
+    isCustomDateRange ? 1 : 0,
   ].reduce((total, value) => total + value, 0);
   const showPagination = !normalizedSearch;
   const showLocalFilter = normalizedSearch || isTypeFilterActive;
@@ -1383,6 +1507,16 @@ export default function HomePage() {
       className: "bg-slate-100 text-slate-600",
     });
   }
+  if (isCustomDateRange && filterStartDate && filterEndDate) {
+    const startLabel = formatDate(filterStartDate);
+    const endLabel = formatDate(filterEndDate);
+    activeFilterChips.push({
+      key: "period",
+      label: `Período: ${startLabel} – ${endLabel}`,
+      title: `${startLabel} até ${endLabel}`,
+      className: "bg-slate-100 text-slate-600",
+    });
+  }
   const destinationAccounts = accounts.filter(
     (account) => account.id !== transactionAccountId,
   );
@@ -1526,6 +1660,33 @@ export default function HomePage() {
   }
   while (calendarDays.length % 7 !== 0) {
     calendarDays.push(null);
+  }
+  const filterCalendarSelectedDate = parseBrazilDate(filterCalendarTempDate);
+  const filterCalendarSelectedParts = getDateParts(filterCalendarTempDate);
+  const filterCalendarSelectedLabel = calendarDateFormatter
+    .format(filterCalendarSelectedDate)
+    .replace(".", "")
+    .toUpperCase();
+  const filterCalendarLabel = `${monthNamesFull[filterCalendarMonth]} ${filterCalendarYear}`;
+  const filterFirstWeekday = new Date(
+    filterCalendarYear,
+    filterCalendarMonth,
+    1,
+  ).getDay();
+  const filterDaysInMonth = new Date(
+    filterCalendarYear,
+    filterCalendarMonth + 1,
+    0,
+  ).getDate();
+  const filterCalendarDays: Array<number | null> = [];
+  for (let idx = 0; idx < filterFirstWeekday; idx += 1) {
+    filterCalendarDays.push(null);
+  }
+  for (let day = 1; day <= filterDaysInMonth; day += 1) {
+    filterCalendarDays.push(day);
+  }
+  while (filterCalendarDays.length % 7 !== 0) {
+    filterCalendarDays.push(null);
   }
   const activeMonthParts = activeMonth.split("-").map(Number);
   const fallbackDate = new Date();
@@ -2732,6 +2893,142 @@ export default function HomePage() {
                 </div>
               ) : null}
 
+              {isFilterCalendarOpen ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+                  <button
+                    type="button"
+                    aria-label="Fechar calendário"
+                    onClick={closeFilterCalendar}
+                    className="absolute inset-0 animate-[overlay-in_0.2s_ease-out] bg-slate-900/40 backdrop-blur-sm"
+                  />
+                  <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-[var(--shadow)]">
+                    <div className="-mx-px -mt-px rounded-t-3xl bg-[var(--accent)] px-5 py-4 text-white">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/70">
+                        {filterCalendarTarget === "end" ? "Data final" : "Data inicial"}
+                      </p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {filterCalendarSelectedLabel}
+                      </p>
+                    </div>
+                    <div className="px-5 py-4">
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (filterCalendarMonth === 0) {
+                              setFilterCalendarMonth(11);
+                              setFilterCalendarYear((prev) => prev - 1);
+                            } else {
+                              setFilterCalendarMonth((prev) => prev - 1);
+                            }
+                          }}
+                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
+                          aria-label="Mês anterior"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M15 18l-6-6 6-6" />
+                          </svg>
+                        </button>
+                        <span className="text-sm font-semibold text-[var(--ink)]">
+                          {filterCalendarLabel}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (filterCalendarMonth === 11) {
+                              setFilterCalendarMonth(0);
+                              setFilterCalendarYear((prev) => prev + 1);
+                            } else {
+                              setFilterCalendarMonth((prev) => prev + 1);
+                            }
+                          }}
+                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)]"
+                          aria-label="Próximo mês"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M9 6l6 6-6 6" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="mt-3 grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-[var(--muted)]">
+                        {calendarWeekdays.map((weekday) => (
+                          <span key={weekday}>{weekday}</span>
+                        ))}
+                      </div>
+                      <div className="mt-2 grid grid-cols-7 gap-1 text-center text-sm">
+                        {filterCalendarDays.map((day, index) => {
+                          if (!day) {
+                            return <span key={`empty-${index}`} />;
+                          }
+                          const isSelected =
+                            Boolean(filterCalendarSelectedParts) &&
+                            day === filterCalendarSelectedParts?.day &&
+                            filterCalendarMonth ===
+                              filterCalendarSelectedParts?.monthIndex &&
+                            filterCalendarYear === filterCalendarSelectedParts?.year;
+                          return (
+                            <button
+                              key={`${filterCalendarYear}-${filterCalendarMonth}-${day}`}
+                              type="button"
+                              onClick={() => {
+                                setFilterCalendarTempDate(
+                                  formatDateKey(
+                                    filterCalendarYear,
+                                    filterCalendarMonth,
+                                    day,
+                                  ),
+                                );
+                              }}
+                              className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
+                                isSelected
+                                  ? "bg-[var(--accent)] text-white"
+                                  : "text-[var(--ink)] hover:bg-slate-100"
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-4 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={closeFilterCalendar}
+                          className="text-xs font-semibold text-[var(--muted)] transition hover:text-[var(--ink)]"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={applyFilterCalendar}
+                          className="text-xs font-semibold text-[var(--accent-strong)] transition hover:text-[var(--accent)]"
+                        >
+                          OK
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {isLoadingMemberships ? (
                 <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
                   <p className="text-sm text-[var(--muted)]">
@@ -2843,6 +3140,7 @@ export default function HomePage() {
                               setFilterCategoryId("");
                               setSearchQuery("");
                               setTypeFilters([...typeFilterAll]);
+                              resetFilterDateRange();
                             }}
                             className="hidden rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] sm:inline-flex"
                           >
@@ -2905,6 +3203,7 @@ export default function HomePage() {
                                       setFilterCategoryId("");
                                       setSearchQuery("");
                                       setTypeFilters([...typeFilterAll]);
+                                      resetFilterDateRange();
                                       setIsMobileFiltersOpen(false);
                                     }}
                                     className="text-xs font-semibold text-[var(--accent-strong)]"
@@ -2920,7 +3219,11 @@ export default function HomePage() {
                                     <span
                                       key={chip.key}
                                       title={chip.title ?? chip.label}
-                                      className={`max-w-[160px] truncate rounded-full px-3 py-1 text-[11px] font-semibold ${chip.className}`}
+                                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                                        chip.key === "period"
+                                          ? "max-w-full whitespace-normal"
+                                          : "max-w-[160px] truncate"
+                                      } ${chip.className}`}
                                     >
                                       {chip.label}
                                     </span>
@@ -2966,6 +3269,63 @@ export default function HomePage() {
                                       </option>
                                     ))}
                                   </select>
+                                </div>
+                                <div className="grid gap-2">
+                                  <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                                    Período
+                                  </label>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => openFilterCalendar("start")}
+                                      aria-label="Selecionar data inicial"
+                                      className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-white px-3 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+                                    >
+                                      <span className="truncate">
+                                        {filterStartDate
+                                          ? formatDate(filterStartDate)
+                                          : "Data inicial"}
+                                      </span>
+                                      <svg
+                                        aria-hidden="true"
+                                        viewBox="0 0 24 24"
+                                        className="h-4 w-4 text-[var(--muted)]"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      >
+                                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                                        <path d="M16 2v4M8 2v4M3 10h18" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openFilterCalendar("end")}
+                                      aria-label="Selecionar data final"
+                                      className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-white px-3 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+                                    >
+                                      <span className="truncate">
+                                        {filterEndDate
+                                          ? formatDate(filterEndDate)
+                                          : "Data final"}
+                                      </span>
+                                      <svg
+                                        aria-hidden="true"
+                                        viewBox="0 0 24 24"
+                                        className="h-4 w-4 text-[var(--muted)]"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      >
+                                        <rect x="3" y="4" width="18" height="18" rx="2" />
+                                        <path d="M16 2v4M8 2v4M3 10h18" />
+                                      </svg>
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="grid gap-2">
                                   <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -3036,6 +3396,62 @@ export default function HomePage() {
                                 </option>
                               ))}
                             </select>
+                            <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-3 py-2 shadow-sm">
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                                Período
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openFilterCalendar("start")}
+                                aria-label="Selecionar data inicial"
+                                className="flex min-w-[120px] items-center justify-between gap-2 text-xs font-semibold text-[var(--ink)] transition hover:text-[var(--accent-strong)]"
+                              >
+                                <span className="truncate">
+                                  {filterStartDate
+                                    ? formatDate(filterStartDate)
+                                    : "Data inicial"}
+                                </span>
+                                <svg
+                                  aria-hidden="true"
+                                  viewBox="0 0 24 24"
+                                  className="h-4 w-4 text-[var(--muted)]"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                                  <path d="M16 2v4M8 2v4M3 10h18" />
+                                </svg>
+                              </button>
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                                até
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openFilterCalendar("end")}
+                                aria-label="Selecionar data final"
+                                className="flex min-w-[120px] items-center justify-between gap-2 text-xs font-semibold text-[var(--ink)] transition hover:text-[var(--accent-strong)]"
+                              >
+                                <span className="truncate">
+                                  {filterEndDate ? formatDate(filterEndDate) : "Data final"}
+                                </span>
+                                <svg
+                                  aria-hidden="true"
+                                  viewBox="0 0 24 24"
+                                  className="h-4 w-4 text-[var(--muted)]"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                                  <path d="M16 2v4M8 2v4M3 10h18" />
+                                </svg>
+                              </button>
+                            </div>
                             <div className="flex flex-wrap items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm">
                               {typeFilterOptions.map((option) => {
                                 const isActive = typeFilters.includes(option.value);
