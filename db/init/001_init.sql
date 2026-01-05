@@ -93,6 +93,7 @@ create table if not exists public.accounts (
   currency text not null default 'BRL',
   visibility public.account_visibility not null default 'shared',
   owner_user_id uuid references auth.users(id),
+  opening_balance numeric(14,2) not null default 0,
   created_by uuid references auth.users(id) default auth.uid(),
   created_at timestamptz not null default now()
 );
