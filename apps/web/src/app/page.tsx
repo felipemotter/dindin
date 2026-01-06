@@ -1290,6 +1290,12 @@ export default function HomePage() {
     setIsTransactionModalOpen(true);
   };
 
+  const openAccountTransactions = (accountId: string) => {
+    setActiveView("transactions");
+    setFilterAccountId(accountId);
+    setIsMobileMenuOpen(false);
+  };
+
   const handleCreateFamily = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setCreateError(null);
@@ -5186,7 +5192,7 @@ export default function HomePage() {
                               key={account.id}
                               className="rounded-3xl border border-[var(--border)] bg-white p-5 shadow-sm"
                             >
-                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start justify-between gap-3">
                                 <div className="flex min-w-0 items-center gap-3">
                                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-sm font-semibold text-[var(--accent-strong)]">
                                     {account.name.slice(0, 2).toUpperCase()}
@@ -5200,21 +5206,12 @@ export default function HomePage() {
                                     </p>
                                   </div>
                                 </div>
-                                <div
-                                  className="relative"
-                                  data-account-menu-id={account.id}
-                                >
+                                <div className="flex items-center gap-2">
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      setOpenAccountMenuId((prev) => {
-                                        setAccountActionError(null);
-                                        return prev === account.id ? null : account.id;
-                                      })
-                                    }
+                                    onClick={() => openAccountTransactions(account.id)}
                                     className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--ink)]"
-                                    aria-label="Opções da conta"
-                                    aria-expanded={openAccountMenuId === account.id}
+                                    aria-label="Ver lançamentos da conta"
                                   >
                                     <svg
                                       aria-hidden="true"
@@ -5226,67 +5223,102 @@ export default function HomePage() {
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                     >
-                                      <circle cx="12" cy="12" r="1.5" />
-                                      <circle cx="19" cy="12" r="1.5" />
-                                      <circle cx="5" cy="12" r="1.5" />
+                                      <path d="M8 6h13" />
+                                      <path d="M8 12h13" />
+                                      <path d="M8 18h13" />
+                                      <circle cx="3" cy="6" r="1" />
+                                      <circle cx="3" cy="12" r="1" />
+                                      <circle cx="3" cy="18" r="1" />
                                     </svg>
                                   </button>
-                                  {openAccountMenuId === account.id ? (
-                                    <div className="absolute right-0 z-20 mt-2 w-44 rounded-2xl border border-[var(--border)] bg-white p-2 text-sm text-[var(--ink)] shadow-lg">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenAccountMenuId(null);
-                                          openAccountEditor(account);
-                                        }}
-                                        disabled={isActionLoading}
-                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                  <div
+                                    className="relative"
+                                    data-account-menu-id={account.id}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setOpenAccountMenuId((prev) => {
+                                          setAccountActionError(null);
+                                          return prev === account.id ? null : account.id;
+                                        })
+                                      }
+                                      className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--ink)]"
+                                      aria-label="Opções da conta"
+                                      aria-expanded={openAccountMenuId === account.id}
+                                    >
+                                      <svg
+                                        aria-hidden="true"
+                                        viewBox="0 0 24 24"
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
                                       >
-                                        Editar conta
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenAccountMenuId(null);
-                                          handleArchiveAccount(account);
-                                        }}
-                                        disabled={isActionLoading}
-                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        {isActionLoading ? "Arquivando..." : "Arquivar conta"}
-                                      </button>
-                                      {isCountLoading ? (
-                                        <div className="px-3 py-2 text-xs font-semibold text-[var(--muted)]">
-                                          Verificando lançamentos...
-                                        </div>
-                                      ) : hasTransactions === false ? (
+                                        <circle cx="12" cy="12" r="1.5" />
+                                        <circle cx="19" cy="12" r="1.5" />
+                                        <circle cx="5" cy="12" r="1.5" />
+                                      </svg>
+                                    </button>
+                                    {openAccountMenuId === account.id ? (
+                                      <div className="absolute right-0 z-20 mt-2 w-44 rounded-2xl border border-[var(--border)] bg-white p-2 text-sm text-[var(--ink)] shadow-lg">
                                         <button
                                           type="button"
                                           onClick={() => {
                                             setOpenAccountMenuId(null);
-                                            handleDeleteAccount(account);
+                                            openAccountEditor(account);
                                           }}
                                           disabled={isActionLoading}
-                                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                                         >
-                                          {isActionLoading
-                                            ? "Excluindo..."
-                                            : "Excluir conta"}
+                                          Editar conta
                                         </button>
-                                      ) : null}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setOpenAccountMenuId(null);
-                                          openBalanceAdjust(account.id);
-                                        }}
-                                        disabled={isActionLoading}
-                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        Ajustar saldo
-                                      </button>
-                                    </div>
-                                  ) : null}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenAccountMenuId(null);
+                                            handleArchiveAccount(account);
+                                          }}
+                                          disabled={isActionLoading}
+                                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          {isActionLoading ? "Arquivando..." : "Arquivar conta"}
+                                        </button>
+                                        {isCountLoading ? (
+                                          <div className="px-3 py-2 text-xs font-semibold text-[var(--muted)]">
+                                            Verificando lançamentos...
+                                          </div>
+                                        ) : hasTransactions === false ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setOpenAccountMenuId(null);
+                                              handleDeleteAccount(account);
+                                            }}
+                                            disabled={isActionLoading}
+                                            className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                            {isActionLoading
+                                              ? "Excluindo..."
+                                              : "Excluir conta"}
+                                          </button>
+                                        ) : null}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenAccountMenuId(null);
+                                            openBalanceAdjust(account.id);
+                                          }}
+                                          disabled={isActionLoading}
+                                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          Ajustar saldo
+                                        </button>
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 </div>
                               </div>
 
