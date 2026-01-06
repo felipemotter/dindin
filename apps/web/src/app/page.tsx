@@ -2924,8 +2924,29 @@ export default function HomePage() {
                     </button>
                     <div
                       ref={monthPickerRef}
-                      className="relative lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2"
+                      className="relative flex items-center gap-2 lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2"
                     >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSelectMonth(prevMonth.index, prevMonth.year)
+                        }
+                        aria-label="Mês anterior"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--accent-strong)] lg:h-10 lg:w-10"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M15 18l-6-6 6-6" />
+                        </svg>
+                      </button>
                       <button
                         type="button"
                         aria-haspopup="dialog"
@@ -2948,6 +2969,27 @@ export default function HomePage() {
                           strokeLinejoin="round"
                         >
                           <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleSelectMonth(nextMonth.index, nextMonth.year)
+                        }
+                        aria-label="Próximo mês"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--accent-strong)] lg:h-10 lg:w-10"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M9 6l6 6-6 6" />
                         </svg>
                       </button>
                       {isMonthPickerOpen ? (
