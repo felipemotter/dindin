@@ -136,6 +136,7 @@ export default function HomePage() {
       visibility: string;
       owner_user_id: string | null;
       opening_balance: number | null;
+      is_archived: boolean;
       created_at: string;
     }>
   >([]);
@@ -188,6 +189,29 @@ export default function HomePage() {
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [openAccountMenuId, setOpenAccountMenuId] = useState<string | null>(null);
+  const [accountActionError, setAccountActionError] = useState<string | null>(null);
+  const [accountActionLoadingId, setAccountActionLoadingId] = useState<string | null>(
+    null,
+  );
+  const [accountTxnCounts, setAccountTxnCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const [showArchivedAccounts, setShowArchivedAccounts] = useState(false);
+  const [archivedAccounts, setArchivedAccounts] = useState<
+    Array<{
+      id: string;
+      family_id: string;
+      name: string;
+      account_type: string;
+      currency: string;
+      visibility: string;
+      owner_user_id: string | null;
+      opening_balance: number | null;
+      is_archived: boolean;
+      created_at: string;
+    }>
+  >([]);
+  const [isLoadingArchivedAccounts, setIsLoadingArchivedAccounts] = useState(false);
   const [isBalanceAdjustOpen, setIsBalanceAdjustOpen] = useState(false);
   const [balanceAdjustAccountId, setBalanceAdjustAccountId] = useState<string | null>(
     null,
@@ -364,22 +388,79 @@ export default function HomePage() {
   const loadAccounts = async (familyId: string, accessToken: string) => {
     setIsLoadingAccounts(true);
     const authedSupabase = getAuthedSupabaseClient(accessToken);
+    const baseSelect =
+      "id, family_id, name, account_type, currency, visibility, owner_user_id, opening_balance, created_at";
+    const selectWithArchive = `${baseSelect}, is_archived`;
     const { data, error } = await authedSupabase
       .from("accounts")
-      .select(
-        "id, family_id, name, account_type, currency, visibility, owner_user_id, opening_balance, created_at",
-      )
+      .select(selectWithArchive)
       .eq("family_id", familyId)
+      .eq("is_archived", false)
       .order("created_at", { ascending: true });
 
     if (error) {
+      if (error.message?.includes("is_archived")) {
+        const fallback = await authedSupabase
+          .from("accounts")
+          .select(baseSelect)
+          .eq("family_id", familyId)
+          .order("created_at", { ascending: true });
+        if (fallback.error) {
+          setAccounts([]);
+          setIsLoadingAccounts(false);
+          return;
+        }
+        const normalized = (fallback.data ?? []).map((account) => ({
+          ...account,
+          is_archived: false,
+        }));
+        setAccounts(normalized);
+        setIsLoadingAccounts(false);
+        return;
+      }
       setAccounts([]);
       setIsLoadingAccounts(false);
       return;
     }
 
-    setAccounts(data ?? []);
+    const normalized = (data ?? []).map((account) => ({
+      ...account,
+      is_archived: account.is_archived ?? false,
+    }));
+    setAccounts(normalized);
     setIsLoadingAccounts(false);
+  };
+
+  const loadArchivedAccounts = async (familyId: string, accessToken: string) => {
+    setIsLoadingArchivedAccounts(true);
+    const authedSupabase = getAuthedSupabaseClient(accessToken);
+    const baseSelect =
+      "id, family_id, name, account_type, currency, visibility, owner_user_id, opening_balance, created_at";
+    const selectWithArchive = `${baseSelect}, is_archived`;
+    const { data, error } = await authedSupabase
+      .from("accounts")
+      .select(selectWithArchive)
+      .eq("family_id", familyId)
+      .eq("is_archived", true)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      if (error.message?.includes("is_archived")) {
+        setArchivedAccounts([]);
+        setIsLoadingArchivedAccounts(false);
+        return;
+      }
+      setArchivedAccounts([]);
+      setIsLoadingArchivedAccounts(false);
+      return;
+    }
+
+    const normalized = (data ?? []).map((account) => ({
+      ...account,
+      is_archived: account.is_archived ?? true,
+    }));
+    setArchivedAccounts(normalized);
+    setIsLoadingArchivedAccounts(false);
   };
 
   const loadCategories = async (familyId: string, accessToken: string) => {
@@ -638,12 +719,20 @@ export default function HomePage() {
       setAccounts([]);
       setCategories([]);
       setTransactions([]);
+      setArchivedAccounts([]);
       return;
     }
 
     loadAccounts(activeFamilyId, session.access_token);
     loadCategories(activeFamilyId, session.access_token);
   }, [activeFamilyId, session?.access_token]);
+
+  useEffect(() => {
+    if (!showArchivedAccounts || !activeFamilyId || !session?.access_token) {
+      return;
+    }
+    loadArchivedAccounts(activeFamilyId, session.access_token);
+  }, [showArchivedAccounts, activeFamilyId, session?.access_token]);
 
   useEffect(() => {
     if (!activeFamilyId || !session?.access_token) {
@@ -882,6 +971,30 @@ export default function HomePage() {
   }, [openAccountMenuId]);
 
   useEffect(() => {
+    if (!openAccountMenuId || accountTxnCounts[openAccountMenuId] !== undefined) {
+      return;
+    }
+    if (!session?.access_token) {
+      return;
+    }
+    const loadCount = async () => {
+      const authedSupabase = getAuthedSupabaseClient(session.access_token);
+      const { count, error } = await authedSupabase
+        .from("transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("account_id", openAccountMenuId);
+      if (error) {
+        return;
+      }
+      setAccountTxnCounts((prev) => ({
+        ...prev,
+        [openAccountMenuId]: count ?? 0,
+      }));
+    };
+    void loadCount();
+  }, [accountTxnCounts, openAccountMenuId, session?.access_token]);
+
+  useEffect(() => {
     if (!isBalanceAdjustOpen) {
       return;
     }
@@ -893,6 +1006,10 @@ export default function HomePage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isBalanceAdjustOpen]);
+
+  useEffect(() => {
+    setAccountTxnCounts({});
+  }, [transactions]);
 
   useEffect(() => {
     if (!isFilterCalendarOpen) {
@@ -925,6 +1042,59 @@ export default function HomePage() {
       .replace(",", ".");
     const parsedValue = Number(normalized);
     return Number.isFinite(parsedValue) ? parsedValue : Number.NaN;
+  };
+  const isBalanceAdjustCategory = (name?: string | null) =>
+    name?.trim().toLowerCase().startsWith("ajuste de saldo");
+
+  const getAccountTransactionCount = async (accountId: string) => {
+    if (accountTxnCounts[accountId] !== undefined) {
+      return accountTxnCounts[accountId];
+    }
+    if (!session?.access_token) {
+      return null;
+    }
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { count, error } = await authedSupabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", accountId);
+    if (error) {
+      return null;
+    }
+    const normalizedCount = count ?? 0;
+    setAccountTxnCounts((prev) => ({ ...prev, [accountId]: normalizedCount }));
+    return normalizedCount;
+  };
+
+  const getAccountBalanceForArchive = async (account: (typeof accounts)[number]) => {
+    if (!session?.access_token) {
+      return null;
+    }
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { data, error } = await authedSupabase
+      .from("transactions")
+      .select("amount, source, category:categories(category_type)")
+      .eq("account_id", account.id);
+    if (error) {
+      return null;
+    }
+    let balance = Number(account.opening_balance ?? 0);
+    (data ?? []).forEach((item) => {
+      const amountValue = Number(item.amount);
+      if (!Number.isFinite(amountValue)) {
+        return;
+      }
+      let delta = 0;
+      if (item.source === "transfer") {
+        delta = amountValue;
+      } else if (item.category?.category_type === "income") {
+        delta = amountValue;
+      } else if (item.category?.category_type === "expense") {
+        delta = -amountValue;
+      }
+      balance += delta;
+    });
+    return balance;
   };
 
   const handleLogoClick = () => {
@@ -980,6 +1150,115 @@ export default function HomePage() {
     setBalanceAdjustCategoryId("");
     setBalanceAdjustError(null);
     setIsBalanceAdjustOpen(true);
+  };
+
+  const handleDeleteAccount = async (account: (typeof accounts)[number]) => {
+    setAccountActionError(null);
+    if (!session?.access_token || !activeFamilyId) {
+      setAccountActionError("Selecione uma família ativa.");
+      return;
+    }
+    setAccountActionLoadingId(account.id);
+    const transactionCount = await getAccountTransactionCount(account.id);
+    if (transactionCount === null) {
+      setAccountActionError("Nao foi possivel verificar os lancamentos.");
+      setAccountActionLoadingId(null);
+      return;
+    }
+    if (transactionCount > 0) {
+      setAccountActionError(
+        "Conta possui lancamentos. Para manter o historico, arquive com saldo zerado.",
+      );
+      setAccountActionLoadingId(null);
+      return;
+    }
+    if (!window.confirm(`Excluir a conta "${account.name}"?`)) {
+      setAccountActionLoadingId(null);
+      return;
+    }
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { error } = await authedSupabase
+      .from("accounts")
+      .delete()
+      .eq("id", account.id);
+    if (error) {
+      setAccountActionError(error.message);
+      setAccountActionLoadingId(null);
+      return;
+    }
+    await loadAccounts(activeFamilyId, session.access_token);
+    setOpenAccountMenuId(null);
+    setAccountActionLoadingId(null);
+  };
+
+  const handleArchiveAccount = async (account: (typeof accounts)[number]) => {
+    setAccountActionError(null);
+    if (!session?.access_token || !activeFamilyId) {
+      setAccountActionError("Selecione uma família ativa.");
+      return;
+    }
+    setAccountActionLoadingId(account.id);
+    const currentBalance = await getAccountBalanceForArchive(account);
+    if (currentBalance === null) {
+      setAccountActionError("Nao foi possivel verificar o saldo da conta.");
+      setAccountActionLoadingId(null);
+      return;
+    }
+    if (Math.abs(currentBalance) > 0.009) {
+      setAccountActionError(
+        `Para arquivar, o saldo precisa estar zerado. Saldo atual: ${currencyFormatter.format(
+          currentBalance,
+        )}`,
+      );
+      setAccountActionLoadingId(null);
+      return;
+    }
+    if (!window.confirm(`Arquivar a conta "${account.name}"?`)) {
+      setAccountActionLoadingId(null);
+      return;
+    }
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { error } = await authedSupabase
+      .from("accounts")
+      .update({ is_archived: true })
+      .eq("id", account.id);
+    if (error) {
+      setAccountActionError(error.message);
+      setAccountActionLoadingId(null);
+      return;
+    }
+    await loadAccounts(activeFamilyId, session.access_token);
+    if (showArchivedAccounts) {
+      await loadArchivedAccounts(activeFamilyId, session.access_token);
+    }
+    setOpenAccountMenuId(null);
+    setAccountActionLoadingId(null);
+  };
+
+  const handleUnarchiveAccount = async (
+    account: (typeof archivedAccounts)[number],
+  ) => {
+    setAccountActionError(null);
+    if (!session?.access_token || !activeFamilyId) {
+      setAccountActionError("Selecione uma família ativa.");
+      return;
+    }
+    setAccountActionLoadingId(account.id);
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { error } = await authedSupabase
+      .from("accounts")
+      .update({ is_archived: false })
+      .eq("id", account.id);
+    if (error) {
+      setAccountActionError(error.message);
+      setAccountActionLoadingId(null);
+      return;
+    }
+    await loadAccounts(activeFamilyId, session.access_token);
+    if (showArchivedAccounts) {
+      await loadArchivedAccounts(activeFamilyId, session.access_token);
+    }
+    setAccountActionLoadingId(null);
   };
 
   const openTransactionModal = (
@@ -4743,42 +5022,59 @@ export default function HomePage() {
                             Gerencie suas contas e crie lançamentos diretos.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={openAccountModal}
-                          className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
-                        >
-                          Nova conta
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--muted)]">
+                            <span>Saldo total</span>
+                            <span
+                              className={`text-sm ${
+                                totalBalance < 0
+                                  ? "text-rose-600"
+                                  : totalBalance > 0
+                                    ? "text-emerald-600"
+                                    : "text-slate-600"
+                              }`}
+                            >
+                              {currencyFormatter.format(totalBalance)}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowArchivedAccounts((prev) => !prev)}
+                            className={`inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                              showArchivedAccounts
+                                ? "border-[var(--accent)] text-[var(--accent)]"
+                                : "border-[var(--border)] text-[var(--ink)] hover:border-[var(--accent)]"
+                            }`}
+                          >
+                            {showArchivedAccounts ? "Ocultar arquivadas" : "Ver arquivadas"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={openAccountModal}
+                            className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
+                          >
+                            Nova conta
+                          </button>
+                        </div>
                       </div>
+                      {accountActionError ? (
+                        <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                          {accountActionError}
+                        </div>
+                      ) : null}
 
                       <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        <button
-                          type="button"
-                          onClick={openAccountModal}
-                          className="flex min-h-[190px] flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-[var(--border)] bg-white/70 p-6 text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
-                        >
-                          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-current">
-                            <svg
-                              aria-hidden="true"
-                              viewBox="0 0 24 24"
-                              className="h-5 w-5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                            </svg>
-                          </span>
-                          <span className="text-sm font-semibold uppercase tracking-[0.2em]">
-                            Nova conta
-                          </span>
-                        </button>
                         {accounts.map((account) => {
                           const balance = accountBalances[account.id] ?? 0;
+                          const transactionCount = accountTxnCounts[account.id];
+                          const hasTransactions =
+                            typeof transactionCount === "number"
+                              ? transactionCount > 0
+                              : null;
+                          const isCountLoading =
+                            openAccountMenuId === account.id &&
+                            transactionCount === undefined;
+                          const isActionLoading = accountActionLoadingId === account.id;
                           const valueTone =
                             balance < 0 ? "text-rose-600" : "text-emerald-600";
                           return (
@@ -4807,9 +5103,10 @@ export default function HomePage() {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      setOpenAccountMenuId((prev) =>
-                                        prev === account.id ? null : account.id,
-                                      )
+                                      setOpenAccountMenuId((prev) => {
+                                        setAccountActionError(null);
+                                        return prev === account.id ? null : account.id;
+                                      })
                                     }
                                     className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--ink)]"
                                     aria-label="Opções da conta"
@@ -4838,7 +5135,8 @@ export default function HomePage() {
                                           setOpenAccountMenuId(null);
                                           openAccountEditor(account);
                                         }}
-                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50"
+                                        disabled={isActionLoading}
+                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                                       >
                                         Editar conta
                                       </button>
@@ -4846,9 +5144,40 @@ export default function HomePage() {
                                         type="button"
                                         onClick={() => {
                                           setOpenAccountMenuId(null);
+                                          handleArchiveAccount(account);
+                                        }}
+                                        disabled={isActionLoading}
+                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {isActionLoading ? "Arquivando..." : "Arquivar conta"}
+                                      </button>
+                                      {isCountLoading ? (
+                                        <div className="px-3 py-2 text-xs font-semibold text-[var(--muted)]">
+                                          Verificando lançamentos...
+                                        </div>
+                                      ) : hasTransactions === false ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenAccountMenuId(null);
+                                            handleDeleteAccount(account);
+                                          }}
+                                          disabled={isActionLoading}
+                                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          {isActionLoading
+                                            ? "Excluindo..."
+                                            : "Excluir conta"}
+                                        </button>
+                                      ) : null}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenAccountMenuId(null);
                                           openBalanceAdjust(account.id);
                                         }}
-                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50"
+                                        disabled={isActionLoading}
+                                        className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-[var(--ink)] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                                       >
                                         Ajustar saldo
                                       </button>
@@ -4947,7 +5276,89 @@ export default function HomePage() {
                             </div>
                           );
                         })}
+                        <button
+                          type="button"
+                          onClick={openAccountModal}
+                          className="flex min-h-[190px] flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-[var(--border)] bg-white/70 p-6 text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--accent-strong)]"
+                        >
+                          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-current">
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 24 24"
+                              className="h-5 w-5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M12 5v14" />
+                              <path d="M5 12h14" />
+                            </svg>
+                          </span>
+                          <span className="text-sm font-semibold uppercase tracking-[0.2em]">
+                            Nova conta
+                          </span>
+                        </button>
                       </div>
+
+                      {showArchivedAccounts ? (
+                        <div className="mt-8">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                              Arquivadas
+                            </h4>
+                            <span className="text-xs font-semibold text-[var(--muted)]">
+                              {isLoadingArchivedAccounts
+                                ? "Carregando..."
+                                : `${archivedAccounts.length} conta(s)`}
+                            </span>
+                          </div>
+                          {archivedAccounts.length === 0 && !isLoadingArchivedAccounts ? (
+                            <p className="mt-3 text-sm text-[var(--muted)]">
+                              Nenhuma conta arquivada.
+                            </p>
+                          ) : null}
+                          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            {archivedAccounts.map((account) => (
+                              <div
+                                key={account.id}
+                                className="rounded-3xl border border-dashed border-[var(--border)] bg-white/60 p-5 text-[var(--muted)]"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                                      {account.name}
+                                    </p>
+                                    <p className="text-xs text-[var(--muted)]">
+                                      {account.account_type.replace("_", " ")}
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                                    Arquivada
+                                  </span>
+                                </div>
+                                <div className="mt-4 flex items-center justify-between text-xs text-[var(--muted)]">
+                                  <span>Saldo final</span>
+                                  <span className="font-semibold text-[var(--ink)]">
+                                    {currencyFormatter.format(0)}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnarchiveAccount(account)}
+                                  disabled={accountActionLoadingId === account.id}
+                                  className="mt-4 inline-flex w-full items-center justify-center rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {accountActionLoadingId === account.id
+                                    ? "Reativando..."
+                                    : "Reativar conta"}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                     </section>
                   ) : null}
 
