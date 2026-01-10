@@ -96,6 +96,8 @@ type AccountIconOption = {
 
 const DEFAULT_ACCOUNT_ICON_BG = "#dbeafe";
 const DEFAULT_ACCOUNT_ICON_COLOR = "#1e40af";
+const DEFAULT_CATEGORY_ICON_BG = "#e2e8f0";
+const DEFAULT_CATEGORY_ICON_COLOR = "#0f172a";
 const baseAccountIconOptions: AccountIconOption[] = [
   { key: "initials", label: "Iniciais" },
   {
@@ -255,6 +257,134 @@ const accountIconLookup = accountIconOptions.reduce<
   acc[option.key] = option;
   return acc;
 }, {});
+const categoryIconOptions: AccountIconOption[] = [
+  ...baseAccountIconOptions,
+  {
+    key: "tag",
+    label: "Etiqueta",
+    icon: ({ className = "h-5 w-5" }) => (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M20 10l-6-6H6a2 2 0 0 0-2 2v8l6 6 10-10z" />
+        <circle cx="9" cy="7" r="1.5" />
+      </svg>
+    ),
+  },
+  {
+    key: "cart",
+    label: "Compras",
+    icon: ({ className = "h-5 w-5" }) => (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="9" cy="20" r="1.5" />
+        <circle cx="18" cy="20" r="1.5" />
+        <path d="M3 4h2l2.8 9.5a2 2 0 0 0 2 1.5h7.4a2 2 0 0 0 2-1.5L21 8H7" />
+      </svg>
+    ),
+  },
+  {
+    key: "home",
+    label: "Casa",
+    icon: ({ className = "h-5 w-5" }) => (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 10l9-7 9 7" />
+        <path d="M5 10v10h14V10" />
+        <path d="M9 20v-6h6v6" />
+      </svg>
+    ),
+  },
+  {
+    key: "car",
+    label: "Transporte",
+    icon: ({ className = "h-5 w-5" }) => (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5 16l1.5-6h11L19 16" />
+        <path d="M5 16h14" />
+        <circle cx="7" cy="18" r="1.5" />
+        <circle cx="17" cy="18" r="1.5" />
+      </svg>
+    ),
+  },
+  {
+    key: "food",
+    label: "Alimentação",
+    icon: ({ className = "h-5 w-5" }) => (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 3v7a4 4 0 0 0 4 4h1" />
+        <path d="M8 3v7" />
+        <path d="M12 3v18" />
+        <path d="M20 4c0 3-2 5-4 5v12" />
+      </svg>
+    ),
+  },
+  {
+    key: "health",
+    label: "Saúde",
+    icon: ({ className = "h-5 w-5" }) => (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 21s-6-4.35-8-7.5C2 10 4 7 7 7c2 0 3.5 1.4 5 3 1.5-1.6 3-3 5-3 3 0 5 3 3 6.5-2 3.15-8 7.5-8 7.5z" />
+      </svg>
+    ),
+  },
+];
+const categoryIconLookup = categoryIconOptions.reduce<
+  Record<string, AccountIconOption>
+>((acc, option) => {
+  acc[option.key] = option;
+  return acc;
+}, {});
 
 const getMonthRange = (monthValue: string) => {
   const [year, month] = monthValue.split("-").map(Number);
@@ -278,7 +408,7 @@ export default function HomePage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeView, setActiveView] = useState<
-    "dashboard" | "transactions" | "transfers" | "accounts"
+    "dashboard" | "transactions" | "transfers" | "accounts" | "categories"
   >("dashboard");
   const [activeMonth, setActiveMonth] = useState(() =>
     getBrazilToday().slice(0, 7),
@@ -318,6 +448,11 @@ export default function HomePage() {
       id: string;
       name: string;
       category_type: string;
+      parent_id: string | null;
+      icon_key: string | null;
+      icon_bg: string | null;
+      icon_color: string | null;
+      is_archived: boolean;
       created_at: string;
     }>
   >([]);
@@ -362,8 +497,44 @@ export default function HomePage() {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [categoryName, setCategoryName] = useState("");
   const [categoryType, setCategoryType] = useState("expense");
+  const [categoryParentId, setCategoryParentId] = useState("");
+  const [categoryIconKey, setCategoryIconKey] = useState("tag");
+  const [categoryIconBg, setCategoryIconBg] = useState(
+    DEFAULT_CATEGORY_ICON_BG,
+  );
+  const [categoryIconColor, setCategoryIconColor] = useState(
+    DEFAULT_CATEGORY_ICON_COLOR,
+  );
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [categoryViewType, setCategoryViewType] = useState<
+    "expense" | "income"
+  >("expense");
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryActionError, setCategoryActionError] = useState<string | null>(
+    null,
+  );
+  const [categoryActionLoadingId, setCategoryActionLoadingId] = useState<
+    string | null
+  >(null);
+  const [showArchivedCategories, setShowArchivedCategories] = useState(false);
+  const [archivedCategories, setArchivedCategories] = useState<
+    Array<{
+      id: string;
+      name: string;
+      category_type: string;
+      parent_id: string | null;
+      icon_key: string | null;
+      icon_bg: string | null;
+      icon_color: string | null;
+      is_archived: boolean;
+      created_at: string;
+    }>
+  >([]);
+  const [isLoadingArchivedCategories, setIsLoadingArchivedCategories] =
+    useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isEditingAccount, setIsEditingAccount] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
@@ -503,6 +674,7 @@ export default function HomePage() {
       isMobileMenuOpen ||
       isFilterCalendarOpen ||
       isAccountModalOpen ||
+      isCategoryModalOpen ||
       isBalanceAdjustOpen;
     if (!shouldLockScroll) {
       return undefined;
@@ -518,6 +690,7 @@ export default function HomePage() {
     isMobileMenuOpen,
     isFilterCalendarOpen,
     isAccountModalOpen,
+    isCategoryModalOpen,
     isBalanceAdjustOpen,
   ]);
 
@@ -712,20 +885,145 @@ export default function HomePage() {
   const loadCategories = async (familyId: string, accessToken: string) => {
     setIsLoadingCategories(true);
     const authedSupabase = getAuthedSupabaseClient(accessToken);
+    const baseSelect =
+      "id, name, category_type, parent_id, icon_key, icon_bg, icon_color, created_at";
+    const selectWithArchive = `${baseSelect}, is_archived`;
     const { data, error } = await authedSupabase
       .from("categories")
-      .select("id, name, category_type, created_at")
+      .select(selectWithArchive)
       .eq("family_id", familyId)
+      .eq("is_archived", false)
       .order("created_at", { ascending: true });
 
     if (error) {
+      if (error.message?.includes("is_archived")) {
+        const fallback = await authedSupabase
+          .from("categories")
+          .select(baseSelect)
+          .eq("family_id", familyId)
+          .order("created_at", { ascending: true });
+        if (fallback.error) {
+          setCategories([]);
+          setIsLoadingCategories(false);
+          return;
+        }
+        const normalized = (fallback.data ?? []).map((category) => ({
+          ...category,
+          is_archived: false,
+          parent_id: category.parent_id ?? null,
+          icon_key: category.icon_key ?? null,
+          icon_bg: category.icon_bg ?? null,
+          icon_color: category.icon_color ?? null,
+        }));
+        setCategories(normalized);
+        setIsLoadingCategories(false);
+        return;
+      }
+      if (
+        error.message?.includes("parent_id") ||
+        error.message?.includes("icon_")
+      ) {
+        const fallback = await authedSupabase
+          .from("categories")
+          .select(`id, name, category_type, created_at, is_archived`)
+          .eq("family_id", familyId)
+          .eq("is_archived", false)
+          .order("created_at", { ascending: true });
+        if (fallback.error) {
+          setCategories([]);
+          setIsLoadingCategories(false);
+          return;
+        }
+        const normalized = (fallback.data ?? []).map((category) => ({
+          ...category,
+          is_archived: category.is_archived ?? false,
+          parent_id: null,
+          icon_key: null,
+          icon_bg: null,
+          icon_color: null,
+        }));
+        setCategories(normalized);
+        setIsLoadingCategories(false);
+        return;
+      }
       setCategories([]);
       setIsLoadingCategories(false);
       return;
     }
 
-    setCategories(data ?? []);
+    const normalized = (data ?? []).map((category) => ({
+      ...category,
+      is_archived: category.is_archived ?? false,
+      parent_id: category.parent_id ?? null,
+      icon_key: category.icon_key ?? null,
+      icon_bg: category.icon_bg ?? null,
+      icon_color: category.icon_color ?? null,
+    }));
+    setCategories(normalized);
     setIsLoadingCategories(false);
+  };
+
+  const loadArchivedCategories = async (familyId: string, accessToken: string) => {
+    setIsLoadingArchivedCategories(true);
+    const authedSupabase = getAuthedSupabaseClient(accessToken);
+    const baseSelect =
+      "id, name, category_type, parent_id, icon_key, icon_bg, icon_color, created_at";
+    const selectWithArchive = `${baseSelect}, is_archived`;
+    const { data, error } = await authedSupabase
+      .from("categories")
+      .select(selectWithArchive)
+      .eq("family_id", familyId)
+      .eq("is_archived", true)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      if (error.message?.includes("is_archived")) {
+        setArchivedCategories([]);
+        setIsLoadingArchivedCategories(false);
+        return;
+      }
+      if (
+        error.message?.includes("parent_id") ||
+        error.message?.includes("icon_")
+      ) {
+        const fallback = await authedSupabase
+          .from("categories")
+          .select(`id, name, category_type, created_at, is_archived`)
+          .eq("family_id", familyId)
+          .eq("is_archived", true)
+          .order("created_at", { ascending: true });
+        if (fallback.error) {
+          setArchivedCategories([]);
+          setIsLoadingArchivedCategories(false);
+          return;
+        }
+        const normalized = (fallback.data ?? []).map((category) => ({
+          ...category,
+          is_archived: category.is_archived ?? true,
+          parent_id: null,
+          icon_key: null,
+          icon_bg: null,
+          icon_color: null,
+        }));
+        setArchivedCategories(normalized);
+        setIsLoadingArchivedCategories(false);
+        return;
+      }
+      setArchivedCategories([]);
+      setIsLoadingArchivedCategories(false);
+      return;
+    }
+
+    const normalized = (data ?? []).map((category) => ({
+      ...category,
+      is_archived: category.is_archived ?? true,
+      parent_id: category.parent_id ?? null,
+      icon_key: category.icon_key ?? null,
+      icon_bg: category.icon_bg ?? null,
+      icon_color: category.icon_color ?? null,
+    }));
+    setArchivedCategories(normalized);
+    setIsLoadingArchivedCategories(false);
   };
 
   const loadTransactions = async (
@@ -975,6 +1273,7 @@ export default function HomePage() {
     if (!activeFamilyId || !session?.access_token) {
       setAccounts([]);
       setCategories([]);
+      setArchivedCategories([]);
       setTransactions([]);
       setArchivedAccounts([]);
       return;
@@ -993,6 +1292,13 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!activeFamilyId || !session?.access_token) {
+      return;
+    }
+    loadArchivedCategories(activeFamilyId, session.access_token);
+  }, [activeFamilyId, session?.access_token]);
+
+  useEffect(() => {
+    if (!activeFamilyId || !session?.access_token) {
       setTransactions([]);
       setTransactionsTotal(null);
       return;
@@ -1004,6 +1310,9 @@ export default function HomePage() {
       return;
     }
 
+    const monthRange = getMonthRange(activeMonth);
+    const isTransactionsScreen = activeView === "transactions";
+
     loadTransactions(
       accounts.map((account) => account.id),
       session.access_token,
@@ -1012,21 +1321,18 @@ export default function HomePage() {
         accountId: filterAccountId || undefined,
         categoryId: filterCategoryId || undefined,
         startDate:
-          (isTransactionsView
-            ? filterStartDate
-            : activeMonthRange.startDate) || undefined,
+          (isTransactionsScreen ? filterStartDate : monthRange.startDate) ||
+          undefined,
         endDate:
-          (isTransactionsView
-            ? filterEndDate
-            : activeMonthRange.endDate) || undefined,
+          (isTransactionsScreen ? filterEndDate : monthRange.endDate) || undefined,
       },
     );
     loadMonthlySummary(
       accounts.map((account) => account.id),
       session.access_token,
       {
-        startDate: activeMonthRange.startDate || undefined,
-        endDate: activeMonthRange.endDate || undefined,
+        startDate: monthRange.startDate || undefined,
+        endDate: monthRange.endDate || undefined,
       },
     );
     const openingBalances = accounts.reduce<Record<string, number>>((acc, account) => {
@@ -1038,7 +1344,7 @@ export default function HomePage() {
       accounts.map((account) => account.id),
       session.access_token,
       {
-        endDate: activeMonthRange.endDate || undefined,
+        endDate: monthRange.endDate || undefined,
       },
       openingBalances,
     );
@@ -1140,7 +1446,11 @@ export default function HomePage() {
       setFilterAccountId("");
     }
 
-    if (!categories.some((category) => category.id === filterCategoryId)) {
+    if (
+      ![...categories, ...archivedCategories].some(
+        (category) => category.id === filterCategoryId,
+      )
+    ) {
       setFilterCategoryId("");
     }
 
@@ -1154,6 +1464,7 @@ export default function HomePage() {
   }, [
     accounts,
     categories,
+    archivedCategories,
     activeFamilyId,
     transactionAccountId,
     transactionDestinationAccountId,
@@ -1205,6 +1516,19 @@ export default function HomePage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isAccountModalOpen]);
+
+  useEffect(() => {
+    if (!isCategoryModalOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsCategoryModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCategoryModalOpen]);
 
   useEffect(() => {
     if (!openAccountMenuId) {
@@ -1398,6 +1722,50 @@ export default function HomePage() {
     setAccountIconColor(account.icon_color ?? DEFAULT_ACCOUNT_ICON_COLOR);
     setBankLogoSearch("");
     setIsAccountModalOpen(true);
+  };
+
+  const closeCategoryModal = () => {
+    setIsCategoryModalOpen(false);
+    setIsEditingCategory(false);
+    setEditingCategoryId(null);
+    setCategoryError(null);
+  };
+
+  const openCategoryModal = (defaults?: {
+    type?: "expense" | "income";
+    parentId?: string | null;
+  }) => {
+    setCategoryError(null);
+    setCategoryActionError(null);
+    setIsEditingCategory(false);
+    setEditingCategoryId(null);
+    setCategoryName("");
+    const parentId = defaults?.parentId ?? "";
+    const parentCategory = parentId
+      ? categories.find((category) => category.id === parentId)
+      : null;
+    const resolvedType =
+      parentCategory?.category_type ?? defaults?.type ?? categoryViewType;
+    setCategoryType(resolvedType);
+    setCategoryParentId(parentId);
+    setCategoryIconKey("tag");
+    setCategoryIconBg(DEFAULT_CATEGORY_ICON_BG);
+    setCategoryIconColor(DEFAULT_CATEGORY_ICON_COLOR);
+    setIsCategoryModalOpen(true);
+  };
+
+  const openCategoryEditor = (category: (typeof categories)[number]) => {
+    setCategoryError(null);
+    setCategoryActionError(null);
+    setIsEditingCategory(true);
+    setEditingCategoryId(category.id);
+    setCategoryName(category.name);
+    setCategoryType(category.category_type);
+    setCategoryParentId(category.parent_id ?? "");
+    setCategoryIconKey(category.icon_key ?? "tag");
+    setCategoryIconBg(category.icon_bg ?? DEFAULT_CATEGORY_ICON_BG);
+    setCategoryIconColor(category.icon_color ?? DEFAULT_CATEGORY_ICON_COLOR);
+    setIsCategoryModalOpen(true);
   };
 
   const closeBalanceAdjust = () => {
@@ -2013,6 +2381,25 @@ export default function HomePage() {
       return;
     }
 
+    const parentId = categoryParentId || null;
+    if (parentId) {
+      const parentCategory = categories.find(
+        (category) => category.id === parentId,
+      );
+      if (!parentCategory) {
+        setCategoryError("Selecione uma categoria principal válida.");
+        return;
+      }
+      if (parentCategory.parent_id) {
+        setCategoryError("Subcategoria não pode ter subcategoria.");
+        return;
+      }
+      if (parentCategory.category_type !== categoryType) {
+        setCategoryError("A subcategoria deve ter o mesmo tipo da principal.");
+        return;
+      }
+    }
+
     setIsCreatingCategory(true);
     const authedSupabase = getAuthedSupabaseClient(session.access_token);
     const { error: categoryInsertError } = await authedSupabase
@@ -2021,18 +2408,196 @@ export default function HomePage() {
         family_id: activeFamilyId,
         name: trimmedName,
         category_type: categoryType,
+        parent_id: parentId,
+        icon_key: categoryIconKey,
+        icon_bg: categoryIconBg,
+        icon_color: categoryIconColor,
       });
 
     if (categoryInsertError) {
-      setCategoryError(categoryInsertError.message);
+      const errorCode =
+        typeof categoryInsertError === "object" && categoryInsertError
+          ? "code" in categoryInsertError
+            ? categoryInsertError.code
+            : null
+          : null;
+      if (errorCode === "23505") {
+        setCategoryError("Já existe uma categoria com esse nome.");
+      } else {
+        setCategoryError(categoryInsertError.message);
+      }
       setIsCreatingCategory(false);
       return;
     }
 
     setCategoryName("");
-    setCategoryType("expense");
+    setCategoryType(categoryViewType);
+    setCategoryParentId("");
+    setCategoryIconKey("tag");
+    setCategoryIconBg(DEFAULT_CATEGORY_ICON_BG);
+    setCategoryIconColor(DEFAULT_CATEGORY_ICON_COLOR);
     await loadCategories(activeFamilyId, session.access_token);
+    if (showArchivedCategories) {
+      await loadArchivedCategories(activeFamilyId, session.access_token);
+    }
     setIsCreatingCategory(false);
+    setIsCategoryModalOpen(false);
+  };
+
+  const handleUpdateCategory = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCategoryError(null);
+
+    if (!session?.access_token || !activeFamilyId) {
+      setCategoryError("Selecione uma família ativa.");
+      return;
+    }
+    if (!editingCategoryId) {
+      setCategoryError("Selecione uma categoria para editar.");
+      return;
+    }
+
+    const trimmedName = categoryName.trim();
+    if (trimmedName.length < 2) {
+      setCategoryError("Informe o nome da categoria.");
+      return;
+    }
+
+    const parentId = categoryParentId || null;
+    if (parentId === editingCategoryId) {
+      setCategoryError("A categoria principal não pode ser ela mesma.");
+      return;
+    }
+    const hasChildren = categories.some(
+      (category) => category.parent_id === editingCategoryId,
+    );
+    if (hasChildren && parentId) {
+      setCategoryError("Uma categoria com subcategorias não pode virar subcategoria.");
+      return;
+    }
+    if (parentId) {
+      const parentCategory = categories.find(
+        (category) => category.id === parentId,
+      );
+      if (!parentCategory) {
+        setCategoryError("Selecione uma categoria principal válida.");
+        return;
+      }
+      if (parentCategory.parent_id) {
+        setCategoryError("Subcategoria não pode ter subcategoria.");
+        return;
+      }
+      if (parentCategory.category_type !== categoryType) {
+        setCategoryError("A subcategoria deve ter o mesmo tipo da principal.");
+        return;
+      }
+    }
+
+    setIsCreatingCategory(true);
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { error } = await authedSupabase
+      .from("categories")
+      .update({
+        name: trimmedName,
+        category_type: categoryType,
+        parent_id: parentId,
+        icon_key: categoryIconKey,
+        icon_bg: categoryIconBg,
+        icon_color: categoryIconColor,
+      })
+      .eq("id", editingCategoryId);
+
+    if (error) {
+      const errorCode =
+        typeof error === "object" && error
+          ? "code" in error
+            ? error.code
+            : null
+          : null;
+      if (errorCode === "23505") {
+        setCategoryError("Já existe uma categoria com esse nome.");
+      } else {
+        setCategoryError(error.message);
+      }
+      setIsCreatingCategory(false);
+      return;
+    }
+
+    await loadCategories(activeFamilyId, session.access_token);
+    if (showArchivedCategories) {
+      await loadArchivedCategories(activeFamilyId, session.access_token);
+    }
+    setIsCreatingCategory(false);
+    closeCategoryModal();
+  };
+
+  const handleArchiveCategory = async (category: (typeof categories)[number]) => {
+    setCategoryActionError(null);
+    if (!session?.access_token || !activeFamilyId) {
+      setCategoryActionError("Selecione uma família ativa.");
+      return;
+    }
+
+    const label = category.parent_id
+      ? "Arquivar esta subcategoria?"
+      : "Arquivar esta categoria?";
+    if (!window.confirm(label)) {
+      return;
+    }
+
+    setCategoryActionLoadingId(category.id);
+    const childIds = categories
+      .filter((item) => item.parent_id === category.id)
+      .map((item) => item.id);
+    const idsToArchive = [category.id, ...childIds];
+
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { error } = await authedSupabase
+      .from("categories")
+      .update({ is_archived: true })
+      .in("id", idsToArchive);
+
+    if (error) {
+      setCategoryActionError(error.message);
+      setCategoryActionLoadingId(null);
+      return;
+    }
+
+    await loadCategories(activeFamilyId, session.access_token);
+    await loadArchivedCategories(activeFamilyId, session.access_token);
+    setCategoryActionLoadingId(null);
+  };
+
+  const handleUnarchiveCategory = async (
+    category: (typeof archivedCategories)[number],
+  ) => {
+    setCategoryActionError(null);
+    if (!session?.access_token || !activeFamilyId) {
+      setCategoryActionError("Selecione uma família ativa.");
+      return;
+    }
+
+    setCategoryActionLoadingId(category.id);
+    const childIds = archivedCategories
+      .filter((item) => item.parent_id === category.id)
+      .map((item) => item.id);
+    const idsToRestore = [category.id, ...childIds];
+
+    const authedSupabase = getAuthedSupabaseClient(session.access_token);
+    const { error } = await authedSupabase
+      .from("categories")
+      .update({ is_archived: false })
+      .in("id", idsToRestore);
+
+    if (error) {
+      setCategoryActionError(error.message);
+      setCategoryActionLoadingId(null);
+      return;
+    }
+
+    await loadCategories(activeFamilyId, session.access_token);
+    await loadArchivedCategories(activeFamilyId, session.access_token);
+    setCategoryActionLoadingId(null);
   };
 
   const handleCreateTransaction = async (
@@ -2291,6 +2856,7 @@ export default function HomePage() {
   const isTransactionsView = activeView === "transactions";
   const isTransfersView = activeView === "transfers";
   const isAccountsView = activeView === "accounts";
+  const isCategoriesView = activeView === "categories";
   const effectiveSearchQuery = isTransactionsView ? searchQuery : "";
   const normalizedSearch = effectiveSearchQuery.trim().toLowerCase();
   const effectiveTypeFilters = isTransactionsView
@@ -2318,9 +2884,15 @@ export default function HomePage() {
   });
   const visibleTransactions = normalizedSearch
     ? typeFilteredTransactions.filter((transaction) => {
+        const categoryLabel = transaction.category?.id
+          ? getCategoryDisplayLabel(
+              transaction.category.id,
+              transaction.category?.name,
+            )
+          : transaction.category?.name;
         const haystack = [
           transaction.description,
-          transaction.category?.name,
+          categoryLabel,
           transaction.account?.name,
           transaction.amount,
           transaction.posted_at,
@@ -2395,6 +2967,175 @@ export default function HomePage() {
       .replace(/\s{2,}/g, " ")
       .toUpperCase();
   };
+  const categoriesById = [...categories, ...archivedCategories].reduce<
+    Record<string, (typeof categories)[number]>
+  >((acc, category) => {
+    acc[category.id] = category;
+    return acc;
+  }, {});
+  const getCategoryDisplayLabel = (
+    categoryId?: string | null,
+    fallbackName?: string | null,
+  ) => {
+    if (!categoryId) {
+      return fallbackName ?? "Categoria";
+    }
+    const category = categoriesById[categoryId];
+    if (!category) {
+      return fallbackName ?? "Categoria";
+    }
+    if (!category.parent_id) {
+      return category.name;
+    }
+    const parent = categoriesById[category.parent_id];
+    return parent ? `${parent.name} / ${category.name}` : category.name;
+  };
+  const buildCategoryOptions = (
+    targetType?: string,
+    includeArchived = false,
+    includeAdjustments = false,
+  ) => {
+    const source = includeArchived
+      ? [...categories, ...archivedCategories]
+      : categories;
+    const archivedIds = includeArchived
+      ? new Set(archivedCategories.map((item) => item.id))
+      : new Set<string>();
+    return source
+      .filter((category) =>
+        includeAdjustments ? true : !isBalanceAdjustCategory(category.name),
+      )
+      .filter((category) =>
+        targetType
+          ? category.category_type === targetType
+          : category.category_type !== "transfer",
+      )
+      .map((category) => {
+        const baseLabel = getCategoryDisplayLabel(category.id, category.name);
+        const label = archivedIds.has(category.id)
+          ? `${baseLabel} (arquivada)`
+          : baseLabel;
+        return {
+          ...category,
+          label,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  };
+  const renderCategoryIcon = (
+    category: {
+      name: string;
+      icon_key: string | null;
+      icon_bg: string | null;
+      icon_color: string | null;
+    },
+    wrapperClass = "h-10 w-10",
+    iconClass = "h-5 w-5",
+  ) => {
+    const iconKey = category.icon_key ?? "tag";
+    const iconOption = categoryIconLookup[iconKey] ?? categoryIconLookup.tag;
+    const iconBg = category.icon_bg ?? DEFAULT_CATEGORY_ICON_BG;
+    const iconColor = category.icon_color ?? DEFAULT_CATEGORY_ICON_COLOR;
+    return (
+      <span
+        className={`flex items-center justify-center rounded-full ${wrapperClass}`}
+        style={{ backgroundColor: iconBg, color: iconColor }}
+      >
+        {iconOption?.icon ? (
+          iconOption.icon({ className: iconClass })
+        ) : (
+          <span className="text-[10px] font-semibold">
+            {category.name.slice(0, 2).toUpperCase()}
+          </span>
+        )}
+      </span>
+    );
+  };
+  const renderCategoryActions = (
+    category: (typeof categories)[number],
+    options: { canAddChild?: boolean } = {},
+  ) => {
+    const isActionLoading = categoryActionLoadingId === category.id;
+    const baseButton =
+      "flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-60";
+    return (
+      <div className="flex items-center gap-2">
+        {options.canAddChild ? (
+          <button
+            type="button"
+            onClick={() =>
+              openCategoryModal({
+                type: category.category_type as "expense" | "income",
+                parentId: category.id,
+              })
+            }
+            className={baseButton}
+            aria-label="Criar subcategoria"
+            title="Criar subcategoria"
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => openCategoryEditor(category)}
+          disabled={isActionLoading}
+          className={baseButton}
+          aria-label="Editar categoria"
+          title="Editar"
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleArchiveCategory(category)}
+          disabled={isActionLoading}
+          className={baseButton}
+          aria-label="Arquivar categoria"
+          title={isActionLoading ? "Arquivando..." : "Arquivar"}
+        >
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 8v13H3V8" />
+            <path d="M1 3h22v5H1z" />
+            <path d="M10 12h4" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
   const expenseTotals = transactions.reduce<
     Record<string, { name: string; total: number }>
   >((acc, transaction) => {
@@ -2408,7 +3149,12 @@ export default function HomePage() {
     const key = transaction.category?.id ?? "unknown";
     if (!acc[key]) {
       acc[key] = {
-        name: transaction.category?.name ?? "Sem categoria",
+        name: transaction.category?.id
+          ? getCategoryDisplayLabel(
+              transaction.category.id,
+              transaction.category?.name,
+            )
+          : transaction.category?.name ?? "Sem categoria",
         total: 0,
       };
     }
@@ -2439,22 +3185,100 @@ export default function HomePage() {
     expenseTotal > 0 && donutSlices
       ? `conic-gradient(${donutSlices})`
       : "conic-gradient(#e2e8f0 0deg, #e2e8f0 360deg)";
+  const categoryTypeTabs = [
+    {
+      value: "expense",
+      label: "Despesas",
+      active: "bg-rose-100 text-rose-700",
+      inactive: "text-[var(--muted)] hover:text-rose-600",
+    },
+    {
+      value: "income",
+      label: "Receitas",
+      active: "bg-emerald-100 text-emerald-700",
+      inactive: "text-[var(--muted)] hover:text-emerald-600",
+    },
+  ] as const;
+  const activeCategoryRoots = categories
+    .filter((category) => category.category_type === categoryViewType)
+    .filter((category) => !category.parent_id)
+    .filter((category) => !isBalanceAdjustCategory(category.name));
+  const sortedActiveCategoryRoots = [...activeCategoryRoots].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR"),
+  );
+  const activeCategoryChildren = categories
+    .filter((category) => category.category_type === categoryViewType)
+    .filter((category) => category.parent_id)
+    .filter((category) => !isBalanceAdjustCategory(category.name));
+  const activeCategoryChildrenByParent = activeCategoryChildren.reduce<
+    Record<string, typeof categories>
+  >((acc, category) => {
+    if (!category.parent_id) {
+      return acc;
+    }
+    if (!acc[category.parent_id]) {
+      acc[category.parent_id] = [];
+    }
+    acc[category.parent_id].push(category);
+    return acc;
+  }, {});
+  const archivedCategoryIds = new Set(archivedCategories.map((item) => item.id));
+  const archivedCategoryRoots = archivedCategories
+    .filter((category) => category.category_type === categoryViewType)
+    .filter(
+      (category) =>
+        !category.parent_id || !archivedCategoryIds.has(category.parent_id),
+    )
+    .filter((category) => !isBalanceAdjustCategory(category.name));
+  const sortedArchivedCategoryRoots = [...archivedCategoryRoots].sort((a, b) =>
+    a.name.localeCompare(b.name, "pt-BR"),
+  );
+  const archivedCategoryCount = archivedCategories
+    .filter((category) => category.category_type === categoryViewType)
+    .filter((category) => !isBalanceAdjustCategory(category.name)).length;
+  const archivedCategoryChildrenByParent = archivedCategories.reduce<
+    Record<string, typeof archivedCategories>
+  >((acc, category) => {
+    if (!category.parent_id) {
+      return acc;
+    }
+    if (isBalanceAdjustCategory(category.name)) {
+      return acc;
+    }
+    if (!acc[category.parent_id]) {
+      acc[category.parent_id] = [];
+    }
+    acc[category.parent_id].push(category);
+    return acc;
+  }, {});
   const isTransfer = transactionType === "transfer";
-  const filteredCategories =
+  const transactionCategoryOptions =
     transactionType && !isTransfer
-      ? categories
-          .filter((category) => category.category_type === transactionType)
-          .filter((category) => !isBalanceAdjustCategory(category.name))
+      ? buildCategoryOptions(transactionType)
       : [];
   const transactionTypeOptions = [
     { value: "expense", label: "Despesa" },
     { value: "income", label: "Receita" },
     { value: "transfer", label: "Transferência" },
   ];
+  const selectedParentCategory = categoryParentId
+    ? categoriesById[categoryParentId]
+    : null;
+  const editingCategoryHasChildren = Boolean(
+    editingCategoryId &&
+      categories.some((category) => category.parent_id === editingCategoryId),
+  );
+  const isCategoryTypeLocked = Boolean(selectedParentCategory);
+  const categoryParentOptions = categories
+    .filter((category) => !category.parent_id)
+    .filter((category) => category.category_type === categoryType)
+    .filter((category) => category.id !== editingCategoryId)
+    .filter((category) => !isBalanceAdjustCategory(category.name))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const activeTypeLabel =
     transactionTypeOptions.find((option) => option.value === transactionType)
       ?.label ?? "tipo";
-  const hasCategoryOptions = filteredCategories.length > 0;
+  const hasCategoryOptions = transactionCategoryOptions.length > 0;
   const categorySelectDisabled =
     !transactionType || isTransfer || !hasCategoryOptions;
   const categoryPlaceholder = transactionType
@@ -2531,9 +3355,10 @@ export default function HomePage() {
     });
   }
   if (filterCategoryId) {
-    const categoryLabel =
-      categories.find((category) => category.id === filterCategoryId)?.name ??
-      "Categoria";
+    const categoryLabel = getCategoryDisplayLabel(
+      filterCategoryId,
+      categoriesById[filterCategoryId]?.name,
+    );
     activeFilterChips.push({
       key: "category",
       label: `Categoria: ${categoryLabel}`,
@@ -2607,10 +3432,7 @@ export default function HomePage() {
         fromEntry?.posted_at ?? toEntry?.posted_at ?? group[0]?.posted_at ?? "";
       const description =
         group.find((item) => item.description)?.description ?? "";
-      const fallbackId =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${group[0]?.id ?? Date.now()}`;
+      const fallbackId = `${postedAt}-${amountValue}-${group.length}`;
       return {
         id: group[0]?.external_id ?? group[0]?.id ?? fallbackId,
         posted_at: postedAt,
@@ -2936,6 +3758,7 @@ export default function HomePage() {
     },
     {
       label: "Categorias",
+      view: "categories" as const,
       icon: ({ className = "h-5 w-5" }) => (
         <svg
           aria-hidden="true"
@@ -3712,9 +4535,9 @@ export default function HomePage() {
                                     className="w-full rounded-xl border border-[var(--border)] bg-white px-10 py-3 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:bg-slate-50"
                                   >
                                     <option value="">{categoryPlaceholder}</option>
-                                    {filteredCategories.map((category) => (
+                                    {transactionCategoryOptions.map((category) => (
                                       <option key={category.id} value={category.id}>
-                                        {category.name}
+                                        {category.label}
                                       </option>
                                     ))}
                                   </select>
@@ -4290,6 +5113,271 @@ export default function HomePage() {
                 </div>
               ) : null}
 
+              {isCategoryModalOpen ? (
+                <div className="fixed inset-0 z-50 flex items-start justify-center px-3 py-4 sm:items-center sm:px-4 sm:py-6">
+                  <button
+                    type="button"
+                    aria-label="Fechar modal"
+                    onClick={closeCategoryModal}
+                    className="absolute inset-0 animate-[overlay-in_0.2s_ease-out] bg-slate-900/40 backdrop-blur-sm"
+                  />
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="categoria-modal-title"
+                    className="relative z-10 w-full max-w-lg animate-[modal-in_0.22s_ease-out] overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-[var(--shadow)]"
+                  >
+                    <div className="flex items-start justify-between gap-2 border-b border-[var(--border)] px-5 py-4">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                          {isEditingCategory ? "Editar categoria" : "Nova categoria"}
+                        </p>
+                        <h2
+                          id="categoria-modal-title"
+                          className="mt-1 text-lg font-semibold text-[var(--ink)]"
+                        >
+                          {isEditingCategory
+                            ? "Atualizar informações"
+                            : "Adicionar categoria"}
+                        </h2>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={closeCategoryModal}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--ink)]"
+                        aria-label="Fechar"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M18 6L6 18" />
+                          <path d="M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="px-5 py-5">
+                      <form
+                        className="grid gap-4"
+                        onSubmit={
+                          isEditingCategory
+                            ? handleUpdateCategory
+                            : handleCreateCategory
+                        }
+                      >
+                        <div className="grid gap-2">
+                          <label className="text-xs font-semibold text-[var(--muted)]">
+                            Nome da categoria
+                          </label>
+                          <input
+                            value={categoryName}
+                            onChange={(event) =>
+                              setCategoryName(event.target.value)
+                            }
+                            placeholder="Ex.: Moradia"
+                            className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <label className="text-xs font-semibold text-[var(--muted)]">
+                            Tipo
+                          </label>
+                          <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm">
+                            {categoryTypeTabs.map((option) => {
+                              const isActive = categoryType === option.value;
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isCategoryTypeLocked) {
+                                      return;
+                                    }
+                                    setCategoryType(option.value);
+                                    if (
+                                      categoryParentId &&
+                                      selectedParentCategory &&
+                                      selectedParentCategory.category_type !==
+                                        option.value
+                                    ) {
+                                      setCategoryParentId("");
+                                    }
+                                  }}
+                                  disabled={isCategoryTypeLocked}
+                                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                    isActive ? option.active : option.inactive
+                                  } ${
+                                    isCategoryTypeLocked
+                                      ? "cursor-not-allowed opacity-60"
+                                      : ""
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {isCategoryTypeLocked ? (
+                            <p className="text-xs text-[var(--muted)]">
+                              O tipo segue a categoria principal.
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="grid gap-2">
+                          <label className="text-xs font-semibold text-[var(--muted)]">
+                            Categoria principal (opcional)
+                          </label>
+                          <select
+                            value={categoryParentId}
+                            onChange={(event) => {
+                              if (isEditingCategory && editingCategoryHasChildren) {
+                                return;
+                              }
+                              const nextParentId = event.target.value;
+                              setCategoryParentId(nextParentId);
+                              if (nextParentId) {
+                                const parentCategory =
+                                  categoriesById[nextParentId];
+                                if (
+                                  parentCategory &&
+                                  parentCategory.category_type !== categoryType
+                                ) {
+                                  setCategoryType(parentCategory.category_type);
+                                }
+                              }
+                            }}
+                            disabled={isEditingCategory && editingCategoryHasChildren}
+                            className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
+                          >
+                            <option value="">Sem categoria principal</option>
+                            {categoryParentOptions.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {getCategoryDisplayLabel(category.id, category.name)}
+                              </option>
+                            ))}
+                          </select>
+                          {isEditingCategory && editingCategoryHasChildren ? (
+                            <p className="text-xs text-[var(--muted)]">
+                              Essa categoria tem subcategorias; não pode virar subcategoria.
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="grid gap-2">
+                          <label className="text-xs font-semibold text-[var(--muted)]">
+                            Ícone da categoria
+                          </label>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {categoryIconOptions.map((option) => {
+                              const isActive = categoryIconKey === option.key;
+                              return (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  onClick={() => setCategoryIconKey(option.key)}
+                                  aria-label={option.label}
+                                  aria-pressed={isActive}
+                                  title={option.label}
+                                  className={`flex h-10 w-10 items-center justify-center rounded-full border transition ${
+                                    isActive
+                                      ? "border-[var(--accent)] ring-2 ring-[var(--ring)]"
+                                      : "border-[var(--border)] hover:border-[var(--accent)]"
+                                  }`}
+                                  style={{
+                                    backgroundColor: categoryIconBg,
+                                    color: categoryIconColor,
+                                  }}
+                                >
+                                  {option.icon ? (
+                                    option.icon({ className: "h-4 w-4" })
+                                  ) : (
+                                    <span className="text-[10px] font-semibold">
+                                      Aa
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-xs text-[var(--muted)]">
+                            Escolha um ícone para identificar rapidamente a
+                            categoria.
+                          </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid gap-2">
+                            <label className="text-xs font-semibold text-[var(--muted)]">
+                              Cor do fundo
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="color"
+                                value={categoryIconBg}
+                                onChange={(event) =>
+                                  setCategoryIconBg(event.target.value)
+                                }
+                                className="h-10 w-12 rounded-lg border border-[var(--border)] bg-white shadow-sm"
+                              />
+                              <span className="text-xs font-semibold text-[var(--muted)]">
+                                {categoryIconBg.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-xs font-semibold text-[var(--muted)]">
+                              Cor do ícone
+                            </label>
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="color"
+                                value={categoryIconColor}
+                                onChange={(event) =>
+                                  setCategoryIconColor(event.target.value)
+                                }
+                                className="h-10 w-12 rounded-lg border border-[var(--border)] bg-white shadow-sm"
+                              />
+                              <span className="text-xs font-semibold text-[var(--muted)]">
+                                {categoryIconColor.toUpperCase()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {categoryError ? (
+                          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            {categoryError}
+                          </div>
+                        ) : null}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={closeCategoryModal}
+                            className={`${secondaryButton} w-full`}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={isCreatingCategory || !activeFamilyId}
+                            className={`${primaryButton} w-full disabled:cursor-not-allowed disabled:opacity-70`}
+                          >
+                            {isCreatingCategory
+                              ? "Salvando..."
+                              : isEditingCategory
+                                ? "Salvar alterações"
+                                : "Criar categoria"}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {isBalanceAdjustOpen ? (
                 <div className="fixed inset-0 z-50 flex items-start justify-center px-3 py-4 sm:items-center sm:px-4 sm:py-6">
                   <button
@@ -4432,7 +5520,7 @@ export default function HomePage() {
                               </option>
                               {balanceAdjustCategories.map((category) => (
                                 <option key={category.id} value={category.id}>
-                                  {category.name}
+                                  {getCategoryDisplayLabel(category.id, category.name)}
                                 </option>
                               ))}
                             </select>
@@ -4718,7 +5806,7 @@ export default function HomePage() {
                     </section>
                   ) : null}
 
-                  {!isTransfersView && !isAccountsView ? (
+                  {!isTransfersView && !isAccountsView && !isCategoriesView ? (
                     <section
                       className={`grid gap-4 sm:gap-6 ${
                         isDashboardView ? "xl:grid-cols-[minmax(0,1fr)_320px]" : ""
@@ -4862,11 +5950,17 @@ export default function HomePage() {
                                     className="h-10 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
                                   >
                                     <option value="">Todas as categorias</option>
-                                    {categories.map((category) => (
-                                      <option key={category.id} value={category.id}>
-                                        {category.name}
-                                      </option>
-                                    ))}
+                                    {buildCategoryOptions(
+                                      undefined,
+                                      true,
+                                      true,
+                                    ).map(
+                                      (category) => (
+                                        <option key={category.id} value={category.id}>
+                                          {category.label}
+                                        </option>
+                                      ),
+                                    )}
                                   </select>
                                 </div>
                                 <div className="grid gap-2">
@@ -4989,11 +6083,17 @@ export default function HomePage() {
                               className="min-w-[180px] rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
                             >
                               <option value="">Todas as categorias</option>
-                              {categories.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                  {category.name}
-                                </option>
-                              ))}
+                              {buildCategoryOptions(
+                                undefined,
+                                true,
+                                true,
+                              ).map(
+                                (category) => (
+                                  <option key={category.id} value={category.id}>
+                                    {category.label}
+                                  </option>
+                                ),
+                              )}
                             </select>
                             <div className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-white px-3 py-2 shadow-sm">
                               <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
@@ -5136,13 +6236,16 @@ export default function HomePage() {
                                             : categoryType === "income"
                                               ? "text-emerald-600"
                                               : "text-[var(--ink)]";
-                                      const categoryLabel =
-                                        transaction.category?.name ??
-                                        (isTransferRow
+                                      const categoryLabel = transaction.category?.id
+                                        ? getCategoryDisplayLabel(
+                                            transaction.category.id,
+                                            transaction.category?.name,
+                                          )
+                                        : isTransferRow
                                           ? "Transferência"
                                           : isAdjustRow
                                             ? "Ajuste de saldo"
-                                          : "Sem categoria");
+                                            : "Sem categoria";
                                       const title =
                                         transaction.description?.trim() ||
                                         categoryLabel;
@@ -5329,13 +6432,16 @@ export default function HomePage() {
                                       : categoryType === "income"
                                         ? "text-emerald-600"
                                         : "text-[var(--ink)]";
-                                const categoryLabel =
-                                  transaction.category?.name ??
-                                  (isTransferRow
+                                const categoryLabel = transaction.category?.id
+                                  ? getCategoryDisplayLabel(
+                                      transaction.category.id,
+                                      transaction.category?.name,
+                                    )
+                                  : isTransferRow
                                     ? "Transferência"
                                     : isAdjustRow
                                       ? "Ajuste de saldo"
-                                      : "Sem categoria");
+                                      : "Sem categoria";
                                 const typeLabel = isTransferRow
                                   ? "Transferência"
                                   : isAdjustRow
@@ -5965,6 +7071,263 @@ export default function HomePage() {
                     </section>
                   ) : null}
 
+                  {isCategoriesView ? (
+                    <section className="rounded-3xl border border-[var(--border)] bg-white/80 px-3 py-4 shadow-sm sm:p-6">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                            Categorias
+                          </h3>
+                          <p className="mt-2 text-sm text-[var(--muted)]">
+                            Organize despesas e receitas com subcategorias.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm">
+                            {categoryTypeTabs.map((option) => {
+                              const isActive = categoryViewType === option.value;
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() =>
+                                    setCategoryViewType(option.value)
+                                  }
+                                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                    isActive ? option.active : option.inactive
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowArchivedCategories((prev) => !prev)
+                            }
+                            className={`inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                              showArchivedCategories
+                                ? "border-[var(--accent)] text-[var(--accent)]"
+                                : "border-[var(--border)] text-[var(--ink)] hover:border-[var(--accent)]"
+                            }`}
+                          >
+                            {showArchivedCategories
+                              ? "Ocultar arquivadas"
+                              : "Ver arquivadas"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              openCategoryModal({ type: categoryViewType })
+                            }
+                            className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
+                          >
+                            Nova categoria
+                          </button>
+                        </div>
+                      </div>
+
+                      {categoryActionError ? (
+                        <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                          {categoryActionError}
+                        </div>
+                      ) : null}
+
+                      {isLoadingCategories ? (
+                        <p className="mt-4 text-sm text-[var(--muted)]">
+                          Carregando categorias...
+                        </p>
+                      ) : null}
+
+                      {!isLoadingCategories &&
+                      sortedActiveCategoryRoots.length === 0 ? (
+                        <p className="mt-4 text-sm text-[var(--muted)]">
+                          Nenhuma categoria criada ainda.
+                        </p>
+                      ) : null}
+
+                      <div className="mt-5 overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm">
+                        {sortedActiveCategoryRoots.map((category) => {
+                          const children = [
+                            ...(activeCategoryChildrenByParent[category.id] ?? []),
+                          ].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+                          return (
+                            <div
+                              key={category.id}
+                              className="border-b border-[var(--border)] last:border-b-0"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  {renderCategoryIcon(category)}
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                                      {category.name}
+                                    </p>
+                                    <p className="text-xs text-[var(--muted)]">
+                                      {children.length === 0
+                                        ? "Sem subcategorias"
+                                        : `${children.length} subcategoria(s)`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {renderCategoryActions(category, {
+                                    canAddChild: true,
+                                  })}
+                                </div>
+                              </div>
+
+                              {children.length > 0 ? (
+                                <div className="pb-4 pl-14 pr-4">
+                                  <div className="space-y-2 border-l border-[var(--border)] pl-6">
+                                    {children.map((child) => (
+                                      <div
+                                        key={child.id}
+                                        className="relative flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-2"
+                                      >
+                                        <span
+                                          aria-hidden="true"
+                                          className="absolute -left-6 top-1/2 h-px w-6 bg-[var(--border)]"
+                                        />
+                                        <div className="flex min-w-0 items-center gap-2">
+                                          {renderCategoryIcon(
+                                            child,
+                                            "h-8 w-8",
+                                            "h-4 w-4",
+                                          )}
+                                          <span className="truncate text-sm font-semibold text-[var(--ink)]">
+                                            {child.name}
+                                          </span>
+                                        </div>
+                                        {renderCategoryActions(child)}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => openCategoryModal({ type: categoryViewType })}
+                          className="flex w-full items-center justify-center gap-3 px-4 py-4 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)] transition hover:bg-slate-50 hover:text-[var(--accent-strong)]"
+                        >
+                          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-current">
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 24 24"
+                              className="h-4 w-4"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M12 5v14" />
+                              <path d="M5 12h14" />
+                            </svg>
+                          </span>
+                          Nova categoria
+                        </button>
+                      </div>
+
+                      {showArchivedCategories ? (
+                        <div className="mt-8">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <h4 className="text-xs font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+                              Arquivadas
+                            </h4>
+                            <span className="text-xs font-semibold text-[var(--muted)]">
+                              {isLoadingArchivedCategories
+                                ? "Carregando..."
+                                : `${archivedCategoryCount} categoria(s)`}
+                            </span>
+                          </div>
+                          {sortedArchivedCategoryRoots.length === 0 &&
+                          !isLoadingArchivedCategories ? (
+                            <p className="mt-3 text-sm text-[var(--muted)]">
+                              Nenhuma categoria arquivada.
+                            </p>
+                          ) : null}
+                          <div className="mt-4 overflow-hidden rounded-3xl border border-[var(--border)] bg-white/70 shadow-sm">
+                            {sortedArchivedCategoryRoots.map((category) => {
+                              const children = [
+                                ...(archivedCategoryChildrenByParent[category.id] ??
+                                  []),
+                              ].sort((a, b) =>
+                                a.name.localeCompare(b.name, "pt-BR"),
+                              );
+                              const isRestoring = categoryActionLoadingId === category.id;
+                              return (
+                                <div
+                                  key={category.id}
+                                  className="border-b border-[var(--border)] last:border-b-0"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                      {renderCategoryIcon(category)}
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                                          {category.name}
+                                        </p>
+                                        <p className="text-xs text-[var(--muted)]">
+                                          {children.length === 0
+                                            ? "Arquivada"
+                                            : `Arquivada • ${children.length} subcategoria(s)`}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+                                        Arquivada
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUnarchiveCategory(category)}
+                                        disabled={isRestoring}
+                                        className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {isRestoring ? "Reativando..." : "Reativar"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {children.length > 0 ? (
+                                    <div className="pb-4 pl-14 pr-4">
+                                      <div className="space-y-2 border-l border-[var(--border)] pl-6">
+                                        {children.map((child) => (
+                                          <div
+                                            key={child.id}
+                                            className="relative flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-white px-3 py-2"
+                                          >
+                                            <span
+                                              aria-hidden="true"
+                                              className="absolute -left-6 top-1/2 h-px w-6 bg-[var(--border)]"
+                                            />
+                                            {renderCategoryIcon(
+                                              child,
+                                              "h-8 w-8",
+                                              "h-4 w-4",
+                                            )}
+                                            <span className="truncate text-sm font-semibold text-[var(--ink)]">
+                                              {child.name}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                    </section>
+                  ) : null}
+
                   {isTransfersView ? (
                     <section className="rounded-3xl border border-[var(--border)] bg-white/80 p-6 shadow-sm">
                       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -6240,69 +7603,24 @@ export default function HomePage() {
                           Categorias
                         </h2>
                         <p className="mt-3 text-sm text-[var(--muted)]">
-                          Separe entradas e saídas para organizar os relatórios.
+                          Organize entradas e saídas na aba dedicada.
                         </p>
-                        <div className="mt-4 space-y-3">
-                          {isLoadingCategories ? (
-                            <p className="text-sm text-[var(--muted)]">
-                              Carregando categorias...
-                            </p>
-                          ) : categories.length === 0 ? (
-                            <p className="text-sm text-[var(--muted)]">
-                              Nenhuma categoria criada ainda.
-                            </p>
-                          ) : (
-                            categories.map((category) => (
-                              <div
-                                key={category.id}
-                                className="rounded-2xl border border-[var(--border)] bg-white px-3 py-2.5 sm:px-4 sm:py-3"
-                              >
-                                <p className="text-sm font-semibold text-[var(--ink)]">
-                                  {category.name}
-                                </p>
-                                <p className="mt-1 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-                                  {category.category_type}
-                                </p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                        <form
-                          className="mt-4 grid gap-3"
-                          onSubmit={handleCreateCategory}
-                        >
-                          <input
-                            value={categoryName}
-                            onChange={(event) =>
-                              setCategoryName(event.target.value)
-                            }
-                            placeholder="Ex.: Moradia"
-                            className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                          />
-                          <select
-                            value={categoryType}
-                            onChange={(event) =>
-                              setCategoryType(event.target.value)
-                            }
-                            className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm text-[var(--ink)] shadow-sm outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--ring)]"
-                          >
-                            <option value="expense">Despesa</option>
-                            <option value="income">Receita</option>
-                            <option value="transfer">Transferência</option>
-                          </select>
-                          {categoryError ? (
-                            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                              {categoryError}
-                            </div>
-                          ) : null}
+                        <div className="mt-4 flex flex-col gap-3">
                           <button
-                            type="submit"
-                            disabled={isCreatingCategory || !activeFamilyId}
-                            className={`${primaryButton} w-full disabled:cursor-not-allowed disabled:opacity-70`}
+                            type="button"
+                            onClick={() => setActiveView("categories")}
+                            className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
                           >
-                            {isCreatingCategory ? "Criando..." : "Criar categoria"}
+                            Ir para Categorias
                           </button>
-                        </form>
+                          <button
+                            type="button"
+                            onClick={() => openCategoryModal()}
+                            className="inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)]"
+                          >
+                            Nova categoria
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </details>
