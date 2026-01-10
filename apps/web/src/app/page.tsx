@@ -7107,24 +7107,59 @@ export default function HomePage() {
                             onClick={() =>
                               setShowArchivedCategories((prev) => !prev)
                             }
-                            className={`inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                            aria-label={
                               showArchivedCategories
-                                ? "border-[var(--accent)] text-[var(--accent)]"
-                                : "border-[var(--border)] text-[var(--ink)] hover:border-[var(--accent)]"
+                                ? "Ocultar categorias arquivadas"
+                                : "Ver categorias arquivadas"
+                            }
+                            title={
+                              showArchivedCategories
+                                ? "Ocultar arquivadas"
+                                : "Ver arquivadas"
+                            }
+                            className={`flex h-10 w-10 items-center justify-center rounded-full border bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--ink)] ${
+                              showArchivedCategories
+                                ? "border-[var(--accent)] text-[var(--accent-strong)]"
+                                : "border-[var(--border)]"
                             }`}
                           >
-                            {showArchivedCategories
-                              ? "Ocultar arquivadas"
-                              : "Ver arquivadas"}
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 24 24"
+                              className="h-5 w-5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 8v13H3V8" />
+                              <path d="M1 3h22v5H1z" />
+                              <path d="M10 12h4" />
+                            </svg>
                           </button>
                           <button
                             type="button"
                             onClick={() =>
                               openCategoryModal({ type: categoryViewType })
                             }
-                            className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
+                            aria-label="Criar nova categoria"
+                            title="Nova categoria"
+                            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)]"
                           >
-                            Nova categoria
+                            <svg
+                              aria-hidden="true"
+                              viewBox="0 0 24 24"
+                              className="h-5 w-5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M12 5v14" />
+                              <path d="M5 12h14" />
+                            </svg>
                           </button>
                         </div>
                       </div>
