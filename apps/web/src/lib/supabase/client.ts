@@ -3,6 +3,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 let client: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient {
+  if (typeof window !== "undefined") {
+    const cached = (globalThis as { __gestorSupabaseClient?: SupabaseClient })
+      .__gestorSupabaseClient;
+    if (cached) {
+      client = cached;
+    }
+  }
+
   if (client) {
     return client;
   }
@@ -24,29 +32,10 @@ export function getSupabaseClient(): SupabaseClient {
     },
   });
 
-  return client;
-}
-
-export function getAuthedSupabaseClient(accessToken: string): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    );
+  if (typeof window !== "undefined") {
+    (globalThis as { __gestorSupabaseClient?: SupabaseClient })
+      .__gestorSupabaseClient = client;
   }
 
-  return createClient(url, anonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    },
-    auth: {
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      persistSession: false,
-    },
-  });
+  return client;
 }

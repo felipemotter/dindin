@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { getAuthedSupabaseClient, getSupabaseClient } from "@/lib/supabase/client";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { bankLogoOptions } from "@/lib/bank-logos";
 
 const supabase = getSupabaseClient();
@@ -721,14 +721,13 @@ export default function HomePage() {
     };
   }, [isMonthPickerOpen]);
 
-  const loadMemberships = async (userId: string, accessToken: string) => {
+  const loadMemberships = async (userId: string) => {
     setIsLoadingMemberships(true);
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
-  const { data, error } = await authedSupabase
-    .from("memberships")
-    .select("id, role, family:families ( id, name, created_at )")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true });
+    const { data, error } = await supabase
+      .from("memberships")
+      .select("id, role, family:families ( id, name, created_at )")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
 
     if (error) {
       setMemberships([]);
@@ -740,14 +739,13 @@ export default function HomePage() {
     setIsLoadingMemberships(false);
   };
 
-  const loadAccounts = async (familyId: string, accessToken: string) => {
+  const loadAccounts = async (familyId: string) => {
     setIsLoadingAccounts(true);
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
     const baseSelectLegacy =
       "id, family_id, name, account_type, currency, visibility, owner_user_id, opening_balance, created_at";
     const baseSelect = `${baseSelectLegacy}, icon_key, icon_bg, icon_color`;
     const selectWithArchive = `${baseSelect}, is_archived`;
-    const { data, error } = await authedSupabase
+    const { data, error } = await supabase
       .from("accounts")
       .select(selectWithArchive)
       .eq("family_id", familyId)
@@ -756,13 +754,13 @@ export default function HomePage() {
 
     if (error) {
       if (error.message?.includes("is_archived")) {
-        let fallback = await authedSupabase
+        let fallback = await supabase
           .from("accounts")
           .select(baseSelect)
           .eq("family_id", familyId)
           .order("created_at", { ascending: true });
         if (fallback.error && fallback.error.message?.includes("icon_")) {
-          fallback = await authedSupabase
+          fallback = await supabase
             .from("accounts")
             .select(baseSelectLegacy)
             .eq("family_id", familyId)
@@ -785,7 +783,7 @@ export default function HomePage() {
         return;
       }
       if (error.message?.includes("icon_")) {
-        const fallback = await authedSupabase
+        const fallback = await supabase
           .from("accounts")
           .select(`${baseSelectLegacy}, is_archived`)
           .eq("family_id", familyId)
@@ -823,14 +821,13 @@ export default function HomePage() {
     setIsLoadingAccounts(false);
   };
 
-  const loadArchivedAccounts = async (familyId: string, accessToken: string) => {
+  const loadArchivedAccounts = async (familyId: string) => {
     setIsLoadingArchivedAccounts(true);
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
     const baseSelectLegacy =
       "id, family_id, name, account_type, currency, visibility, owner_user_id, opening_balance, created_at";
     const baseSelect = `${baseSelectLegacy}, icon_key, icon_bg, icon_color`;
     const selectWithArchive = `${baseSelect}, is_archived`;
-    const { data, error } = await authedSupabase
+    const { data, error } = await supabase
       .from("accounts")
       .select(selectWithArchive)
       .eq("family_id", familyId)
@@ -844,7 +841,7 @@ export default function HomePage() {
         return;
       }
       if (error.message?.includes("icon_")) {
-        const fallback = await authedSupabase
+        const fallback = await supabase
           .from("accounts")
           .select(`${baseSelectLegacy}, is_archived`)
           .eq("family_id", familyId)
@@ -882,13 +879,12 @@ export default function HomePage() {
     setIsLoadingArchivedAccounts(false);
   };
 
-  const loadCategories = async (familyId: string, accessToken: string) => {
+  const loadCategories = async (familyId: string) => {
     setIsLoadingCategories(true);
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
     const baseSelect =
       "id, name, category_type, parent_id, icon_key, icon_bg, icon_color, created_at";
     const selectWithArchive = `${baseSelect}, is_archived`;
-    const { data, error } = await authedSupabase
+    const { data, error } = await supabase
       .from("categories")
       .select(selectWithArchive)
       .eq("family_id", familyId)
@@ -897,7 +893,7 @@ export default function HomePage() {
 
     if (error) {
       if (error.message?.includes("is_archived")) {
-        const fallback = await authedSupabase
+        const fallback = await supabase
           .from("categories")
           .select(baseSelect)
           .eq("family_id", familyId)
@@ -923,7 +919,7 @@ export default function HomePage() {
         error.message?.includes("parent_id") ||
         error.message?.includes("icon_")
       ) {
-        const fallback = await authedSupabase
+        const fallback = await supabase
           .from("categories")
           .select(`id, name, category_type, created_at, is_archived`)
           .eq("family_id", familyId)
@@ -963,13 +959,12 @@ export default function HomePage() {
     setIsLoadingCategories(false);
   };
 
-  const loadArchivedCategories = async (familyId: string, accessToken: string) => {
+  const loadArchivedCategories = async (familyId: string) => {
     setIsLoadingArchivedCategories(true);
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
     const baseSelect =
       "id, name, category_type, parent_id, icon_key, icon_bg, icon_color, created_at";
     const selectWithArchive = `${baseSelect}, is_archived`;
-    const { data, error } = await authedSupabase
+    const { data, error } = await supabase
       .from("categories")
       .select(selectWithArchive)
       .eq("family_id", familyId)
@@ -986,7 +981,7 @@ export default function HomePage() {
         error.message?.includes("parent_id") ||
         error.message?.includes("icon_")
       ) {
-        const fallback = await authedSupabase
+        const fallback = await supabase
           .from("categories")
           .select(`id, name, category_type, created_at, is_archived`)
           .eq("family_id", familyId)
@@ -1028,7 +1023,6 @@ export default function HomePage() {
 
   const loadTransactions = async (
     accountIds: string[],
-    accessToken: string,
     limit: number,
     filters: {
       accountId?: string;
@@ -1046,8 +1040,7 @@ export default function HomePage() {
       return;
     }
 
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
-    let query = authedSupabase
+    let query = supabase
       .from("transactions")
       .select(
         "id, amount, description, posted_at, created_at, source, external_id, account:accounts(id, name), category:categories(id, name, category_type)",
@@ -1110,7 +1103,6 @@ export default function HomePage() {
 
   const loadMonthlySummary = async (
     accountIds: string[],
-    accessToken: string,
     range?: { startDate?: string; endDate?: string },
   ) => {
     if (accountIds.length === 0) {
@@ -1122,8 +1114,7 @@ export default function HomePage() {
     const startDate = range?.startDate || fallback.startDate;
     const endDate = range?.endDate || fallback.endDate;
 
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
-    const { data, error } = await authedSupabase
+    const { data, error } = await supabase
       .from("transactions")
       .select("amount, source, category:categories(category_type), posted_at")
       .in("account_id", accountIds)
@@ -1165,7 +1156,6 @@ export default function HomePage() {
 
   const loadAccountBalances = async (
     accountIds: string[],
-    accessToken: string,
     range?: { startDate?: string; endDate?: string },
     openingBalances?: Record<string, number>,
   ) => {
@@ -1177,8 +1167,7 @@ export default function HomePage() {
     setIsLoadingBalances(true);
     const startDate = range?.startDate ?? "";
     const endDate = range?.endDate ?? "";
-    const authedSupabase = getAuthedSupabaseClient(accessToken);
-    let query = authedSupabase
+    let query = supabase
       .from("transactions")
       .select("account_id, amount, source, category:categories(category_type)");
 
@@ -1245,7 +1234,7 @@ export default function HomePage() {
       return;
     }
 
-    loadMemberships(session.user.id, session.access_token);
+    loadMemberships(session.user.id);
   }, [session?.access_token, session?.user.id]);
 
   useEffect(() => {
@@ -1279,22 +1268,22 @@ export default function HomePage() {
       return;
     }
 
-    loadAccounts(activeFamilyId, session.access_token);
-    loadCategories(activeFamilyId, session.access_token);
+    loadAccounts(activeFamilyId);
+    loadCategories(activeFamilyId);
   }, [activeFamilyId, session?.access_token]);
 
   useEffect(() => {
     if (!showArchivedAccounts || !activeFamilyId || !session?.access_token) {
       return;
     }
-    loadArchivedAccounts(activeFamilyId, session.access_token);
+    loadArchivedAccounts(activeFamilyId);
   }, [showArchivedAccounts, activeFamilyId, session?.access_token]);
 
   useEffect(() => {
     if (!activeFamilyId || !session?.access_token) {
       return;
     }
-    loadArchivedCategories(activeFamilyId, session.access_token);
+    loadArchivedCategories(activeFamilyId);
   }, [activeFamilyId, session?.access_token]);
 
   useEffect(() => {
@@ -1313,28 +1302,19 @@ export default function HomePage() {
     const monthRange = getMonthRange(activeMonth);
     const isTransactionsScreen = activeView === "transactions";
 
-    loadTransactions(
-      accounts.map((account) => account.id),
-      session.access_token,
-      transactionsLimit,
-      {
-        accountId: filterAccountId || undefined,
-        categoryId: filterCategoryId || undefined,
-        startDate:
-          (isTransactionsScreen ? filterStartDate : monthRange.startDate) ||
-          undefined,
-        endDate:
-          (isTransactionsScreen ? filterEndDate : monthRange.endDate) || undefined,
-      },
-    );
-    loadMonthlySummary(
-      accounts.map((account) => account.id),
-      session.access_token,
-      {
-        startDate: monthRange.startDate || undefined,
-        endDate: monthRange.endDate || undefined,
-      },
-    );
+    loadTransactions(accounts.map((account) => account.id), transactionsLimit, {
+      accountId: filterAccountId || undefined,
+      categoryId: filterCategoryId || undefined,
+      startDate:
+        (isTransactionsScreen ? filterStartDate : monthRange.startDate) ||
+        undefined,
+      endDate:
+        (isTransactionsScreen ? filterEndDate : monthRange.endDate) || undefined,
+    });
+    loadMonthlySummary(accounts.map((account) => account.id), {
+      startDate: monthRange.startDate || undefined,
+      endDate: monthRange.endDate || undefined,
+    });
     const openingBalances = accounts.reduce<Record<string, number>>((acc, account) => {
       const rawValue = Number(account.opening_balance ?? 0);
       acc[account.id] = Number.isFinite(rawValue) ? rawValue : 0;
@@ -1342,10 +1322,7 @@ export default function HomePage() {
     }, {});
     loadAccountBalances(
       accounts.map((account) => account.id),
-      session.access_token,
-      {
-        endDate: monthRange.endDate || undefined,
-      },
+      { endDate: monthRange.endDate || undefined },
       openingBalances,
     );
   }, [
@@ -1559,8 +1536,7 @@ export default function HomePage() {
       return;
     }
     const loadCount = async () => {
-      const authedSupabase = getAuthedSupabaseClient(session.access_token);
-      const { count, error } = await authedSupabase
+      const { count, error } = await supabase
         .from("transactions")
         .select("id", { count: "exact", head: true })
         .eq("account_id", openAccountMenuId);
@@ -1634,8 +1610,7 @@ export default function HomePage() {
     if (!session?.access_token) {
       return null;
     }
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { count, error } = await authedSupabase
+    const { count, error } = await supabase
       .from("transactions")
       .select("id", { count: "exact", head: true })
       .eq("account_id", accountId);
@@ -1651,8 +1626,7 @@ export default function HomePage() {
     if (!session?.access_token) {
       return null;
     }
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { data, error } = await authedSupabase
+    const { data, error } = await supabase
       .from("transactions")
       .select("amount, source, category:categories(category_type)")
       .eq("account_id", account.id);
@@ -1810,8 +1784,7 @@ export default function HomePage() {
       setAccountActionLoadingId(null);
       return;
     }
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { error } = await authedSupabase
+    const { error } = await supabase
       .from("accounts")
       .delete()
       .eq("id", account.id);
@@ -1820,7 +1793,7 @@ export default function HomePage() {
       setAccountActionLoadingId(null);
       return;
     }
-    await loadAccounts(activeFamilyId, session.access_token);
+    await loadAccounts(activeFamilyId);
     setOpenAccountMenuId(null);
     setAccountActionLoadingId(null);
   };
@@ -1851,8 +1824,7 @@ export default function HomePage() {
       setAccountActionLoadingId(null);
       return;
     }
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { error } = await authedSupabase
+    const { error } = await supabase
       .from("accounts")
       .update({ is_archived: true })
       .eq("id", account.id);
@@ -1861,9 +1833,9 @@ export default function HomePage() {
       setAccountActionLoadingId(null);
       return;
     }
-    await loadAccounts(activeFamilyId, session.access_token);
+    await loadAccounts(activeFamilyId);
     if (showArchivedAccounts) {
-      await loadArchivedAccounts(activeFamilyId, session.access_token);
+      await loadArchivedAccounts(activeFamilyId);
     }
     setOpenAccountMenuId(null);
     setAccountActionLoadingId(null);
@@ -1878,8 +1850,7 @@ export default function HomePage() {
       return;
     }
     setAccountActionLoadingId(account.id);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { error } = await authedSupabase
+    const { error } = await supabase
       .from("accounts")
       .update({ is_archived: false })
       .eq("id", account.id);
@@ -1888,9 +1859,9 @@ export default function HomePage() {
       setAccountActionLoadingId(null);
       return;
     }
-    await loadAccounts(activeFamilyId, session.access_token);
+    await loadAccounts(activeFamilyId);
     if (showArchivedAccounts) {
-      await loadArchivedAccounts(activeFamilyId, session.access_token);
+      await loadArchivedAccounts(activeFamilyId);
     }
     setAccountActionLoadingId(null);
   };
@@ -1940,9 +1911,7 @@ export default function HomePage() {
     }
 
     setIsCreatingFamily(true);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-
-    const { data: family, error: familyError } = await authedSupabase
+    const { data: family, error: familyError } = await supabase
       .from("families")
       .insert({ name: trimmedName })
       .select("id, name, created_at")
@@ -1954,7 +1923,7 @@ export default function HomePage() {
       return;
     }
 
-    const { error: membershipError } = await authedSupabase.from("memberships").insert({
+    const { error: membershipError } = await supabase.from("memberships").insert({
       family_id: family.id,
       user_id: session.user.id,
       role: "owner",
@@ -1968,7 +1937,7 @@ export default function HomePage() {
 
     setFamilyName("");
     setActiveFamilyId(family.id);
-    await loadMemberships(session.user.id, session.access_token);
+    await loadMemberships(session.user.id);
     setIsCreatingFamily(false);
   };
 
@@ -2089,7 +2058,6 @@ export default function HomePage() {
     }
 
     setIsCreatingAccount(true);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
     const payload: Record<string, string | number | null> = {
       family_id: activeFamilyId,
       name: trimmedName,
@@ -2106,7 +2074,7 @@ export default function HomePage() {
       payload.opening_balance = openingBalanceValue;
     }
 
-    const { error: accountInsertError } = await authedSupabase
+    const { error: accountInsertError } = await supabase
       .from("accounts")
       .insert(payload);
 
@@ -2123,7 +2091,7 @@ export default function HomePage() {
     setAccountIconKey("initials");
     setAccountIconBg(DEFAULT_ACCOUNT_ICON_BG);
     setAccountIconColor(DEFAULT_ACCOUNT_ICON_COLOR);
-    await loadAccounts(activeFamilyId, session.access_token);
+    await loadAccounts(activeFamilyId);
     setIsCreatingAccount(false);
     closeAccountModal();
   };
@@ -2150,7 +2118,6 @@ export default function HomePage() {
     }
 
     setIsCreatingAccount(true);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
     const payload: Record<string, string | number | null> = {
       name: trimmedName,
       account_type: accountType,
@@ -2165,7 +2132,7 @@ export default function HomePage() {
       payload.opening_balance = openingBalanceValue;
     }
 
-    const { error: accountUpdateError } = await authedSupabase
+    const { error: accountUpdateError } = await supabase
       .from("accounts")
       .update(payload)
       .eq("id", editingAccountId);
@@ -2176,7 +2143,7 @@ export default function HomePage() {
       return;
     }
 
-    await loadAccounts(activeFamilyId, session.access_token);
+    await loadAccounts(activeFamilyId);
     setIsCreatingAccount(false);
     closeAccountModal();
   };
@@ -2214,14 +2181,13 @@ export default function HomePage() {
     }
 
     setIsAdjustingBalance(true);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
 
     let createdCategory = false;
 
     if (balanceAdjustMethod === "opening") {
       const currentOpening = Number(account.opening_balance ?? 0);
       const nextOpening = currentOpening + difference;
-      const { error: updateError } = await authedSupabase
+      const { error: updateError } = await supabase
         .from("accounts")
         .update({ opening_balance: nextOpening })
         .eq("id", account.id);
@@ -2262,7 +2228,7 @@ export default function HomePage() {
           if (!account.family_id) {
             return null;
           }
-          const { data, error } = await authedSupabase
+          const { data, error } = await supabase
             .from("categories")
             .select("id, name, category_type")
             .eq("family_id", account.family_id)
@@ -2277,7 +2243,7 @@ export default function HomePage() {
         if (existingCategory) {
           categoryId = existingCategory.id;
         } else if (account.family_id) {
-          const { data: newCategory, error: categoryError } = await authedSupabase
+          const { data: newCategory, error: categoryError } = await supabase
             .from("categories")
             .insert({
               family_id: account.family_id,
@@ -2323,7 +2289,7 @@ export default function HomePage() {
       }
 
       const amountValue = difference;
-      const { error: insertError } = await authedSupabase.from("transactions").insert({
+      const { error: insertError } = await supabase.from("transactions").insert({
         account_id: account.id,
         category_id: categoryId,
         amount: amountValue,
@@ -2339,9 +2305,9 @@ export default function HomePage() {
       }
     }
 
-    await loadAccounts(activeFamilyId, session.access_token);
+    await loadAccounts(activeFamilyId);
     if (createdCategory) {
-      await loadCategories(activeFamilyId, session.access_token);
+      await loadCategories(activeFamilyId);
     }
     const monthRange = getMonthRange(activeMonth);
     const isTransactionsScreen = activeView === "transactions";
@@ -2351,17 +2317,12 @@ export default function HomePage() {
     const rangeEndDate = isTransactionsScreen
       ? filterEndDate || monthRange.endDate
       : monthRange.endDate;
-    await loadTransactions(
-      accounts.map((item) => item.id),
-      session.access_token,
-      transactionsLimit,
-      {
-        accountId: filterAccountId || undefined,
-        categoryId: filterCategoryId || undefined,
-        startDate: rangeStartDate || undefined,
-        endDate: rangeEndDate || undefined,
-      },
-    );
+    await loadTransactions(accounts.map((item) => item.id), transactionsLimit, {
+      accountId: filterAccountId || undefined,
+      categoryId: filterCategoryId || undefined,
+      startDate: rangeStartDate || undefined,
+      endDate: rangeEndDate || undefined,
+    });
     setIsAdjustingBalance(false);
     closeBalanceAdjust();
   };
@@ -2401,8 +2362,7 @@ export default function HomePage() {
     }
 
     setIsCreatingCategory(true);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { error: categoryInsertError } = await authedSupabase
+    const { error: categoryInsertError } = await supabase
       .from("categories")
       .insert({
         family_id: activeFamilyId,
@@ -2436,9 +2396,9 @@ export default function HomePage() {
     setCategoryIconKey("tag");
     setCategoryIconBg(DEFAULT_CATEGORY_ICON_BG);
     setCategoryIconColor(DEFAULT_CATEGORY_ICON_COLOR);
-    await loadCategories(activeFamilyId, session.access_token);
+    await loadCategories(activeFamilyId);
     if (showArchivedCategories) {
-      await loadArchivedCategories(activeFamilyId, session.access_token);
+      await loadArchivedCategories(activeFamilyId);
     }
     setIsCreatingCategory(false);
     setIsCategoryModalOpen(false);
@@ -2494,8 +2454,7 @@ export default function HomePage() {
     }
 
     setIsCreatingCategory(true);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { error } = await authedSupabase
+    const { error } = await supabase
       .from("categories")
       .update({
         name: trimmedName,
@@ -2523,9 +2482,9 @@ export default function HomePage() {
       return;
     }
 
-    await loadCategories(activeFamilyId, session.access_token);
+    await loadCategories(activeFamilyId);
     if (showArchivedCategories) {
-      await loadArchivedCategories(activeFamilyId, session.access_token);
+      await loadArchivedCategories(activeFamilyId);
     }
     setIsCreatingCategory(false);
     closeCategoryModal();
@@ -2551,8 +2510,7 @@ export default function HomePage() {
       .map((item) => item.id);
     const idsToArchive = [category.id, ...childIds];
 
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { error } = await authedSupabase
+    const { error } = await supabase
       .from("categories")
       .update({ is_archived: true })
       .in("id", idsToArchive);
@@ -2563,8 +2521,8 @@ export default function HomePage() {
       return;
     }
 
-    await loadCategories(activeFamilyId, session.access_token);
-    await loadArchivedCategories(activeFamilyId, session.access_token);
+    await loadCategories(activeFamilyId);
+    await loadArchivedCategories(activeFamilyId);
     setCategoryActionLoadingId(null);
   };
 
@@ -2583,8 +2541,7 @@ export default function HomePage() {
       .map((item) => item.id);
     const idsToRestore = [category.id, ...childIds];
 
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
-    const { error } = await authedSupabase
+    const { error } = await supabase
       .from("categories")
       .update({ is_archived: false })
       .in("id", idsToRestore);
@@ -2595,8 +2552,8 @@ export default function HomePage() {
       return;
     }
 
-    await loadCategories(activeFamilyId, session.access_token);
-    await loadArchivedCategories(activeFamilyId, session.access_token);
+    await loadCategories(activeFamilyId);
+    await loadArchivedCategories(activeFamilyId);
     setCategoryActionLoadingId(null);
   };
 
@@ -2669,7 +2626,6 @@ export default function HomePage() {
     const submitAction = submitter?.dataset.action ?? "close";
 
     setIsCreatingTransaction(true);
-    const authedSupabase = getAuthedSupabaseClient(session.access_token);
     let insertError: { message: string } | null = null;
 
     if (isTransfer) {
@@ -2695,7 +2651,7 @@ export default function HomePage() {
           ? `${baseDescription} (Transferência de ${originAccount?.name ?? "conta"})`
           : `Transferência de ${originAccount?.name ?? "conta"}`;
 
-      const { error } = await authedSupabase.from("transactions").insert([
+      const { error } = await supabase.from("transactions").insert([
         {
           account_id: transactionAccountId,
           category_id: null,
@@ -2721,7 +2677,7 @@ export default function HomePage() {
         insertError = error;
       }
     } else {
-      const { error } = await authedSupabase.from("transactions").insert({
+      const { error } = await supabase.from("transactions").insert({
         account_id: transactionAccountId,
         category_id: transactionCategoryId,
         amount: amountValue,
@@ -7082,50 +7038,88 @@ export default function HomePage() {
                             Organize despesas e receitas com subcategorias.
                           </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm">
-                            {categoryTypeTabs.map((option) => {
-                              const isActive = categoryViewType === option.value;
-                              return (
-                                <button
-                                  key={option.value}
-                                  type="button"
-                                  onClick={() =>
-                                    setCategoryViewType(option.value)
-                                  }
-                                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                                    isActive ? option.active : option.inactive
-                                  }`}
-                                >
-                                  {option.label}
-                                </button>
-                              );
-                            })}
+                        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+                          <div className="min-w-0 overflow-x-auto">
+                            <div className="flex w-max items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm">
+                              {categoryTypeTabs.map((option) => {
+                                const isActive = categoryViewType === option.value;
+                                return (
+                                  <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => setCategoryViewType(option.value)}
+                                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                      isActive ? option.active : option.inactive
+                                    }`}
+                                  >
+                                    {option.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowArchivedCategories((prev) => !prev)
-                            }
-                            className={`inline-flex items-center justify-center rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                              showArchivedCategories
-                                ? "border-[var(--accent)] text-[var(--accent)]"
-                                : "border-[var(--border)] text-[var(--ink)] hover:border-[var(--accent)]"
-                            }`}
-                          >
-                            {showArchivedCategories
-                              ? "Ocultar arquivadas"
-                              : "Ver arquivadas"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openCategoryModal({ type: categoryViewType })
-                            }
-                            className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
-                          >
-                            Nova categoria
-                          </button>
+
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowArchivedCategories((prev) => !prev)
+                              }
+                              aria-label={
+                                showArchivedCategories
+                                  ? "Ocultar categorias arquivadas"
+                                  : "Ver categorias arquivadas"
+                              }
+                              title={
+                                showArchivedCategories
+                                  ? "Ocultar arquivadas"
+                                  : "Ver arquivadas"
+                              }
+                              className={`flex h-10 w-10 items-center justify-center rounded-full border bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--ink)] ${
+                                showArchivedCategories
+                                  ? "border-[var(--accent)] text-[var(--accent-strong)]"
+                                  : "border-[var(--border)]"
+                              }`}
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                className="h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M21 8v13H3V8" />
+                                <path d="M1 3h22v5H1z" />
+                                <path d="M10 12h4" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                openCategoryModal({ type: categoryViewType })
+                              }
+                              aria-label="Criar nova categoria"
+                              title="Nova categoria"
+                              className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)]"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 24 24"
+                                className="h-5 w-5"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M12 5v14" />
+                                <path d="M5 12h14" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
 

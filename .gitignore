@@ -40,3 +40,6 @@ venv/
 
 # Coverage
 coverage/
+
+# Local caches
+.npm-cache/
