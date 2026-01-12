@@ -3937,46 +3937,46 @@ export default function HomePage() {
             >
               <header className="rounded-3xl border border-[var(--border)] bg-white/80 px-5 py-4 shadow-sm backdrop-blur">
                 <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-3">
-                  <div className="flex items-center justify-between gap-3 lg:contents">
-                    <div className="flex items-center gap-3 lg:col-start-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsMobileMenuOpen(true)}
-                        aria-label="Abrir menu"
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:text-[var(--accent-strong)] lg:hidden"
+                  <div className="flex items-center gap-3 lg:col-start-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileMenuOpen(true)}
+                      aria-label="Abrir menu"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:text-[var(--accent-strong)] lg:hidden"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          className="h-5 w-5"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M4 6h16" />
-                          <path d="M4 12h16" />
-                          <path d="M4 18h16" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleLogoClick}
-                        aria-label="Ir para o dashboard"
-                        className="flex h-10 flex-1 items-center justify-center rounded-xl px-1 transition hover:bg-slate-50 lg:hidden"
-                      >
-                        <img
-                          src="/logo_gestor.png"
-                          alt="Gestor"
-                          className="h-8 w-full max-w-[140px] object-contain"
-                        />
-                      </button>
-                    </div>
+                        <path d="M4 6h16" />
+                        <path d="M4 12h16" />
+                        <path d="M4 18h16" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogoClick}
+                      aria-label="Ir para o dashboard"
+                      className="flex h-10 flex-1 items-center justify-center rounded-xl px-1 transition hover:bg-slate-50 lg:hidden"
+                    >
+                      <img
+                        src="/logo_gestor.png"
+                        alt="Gestor"
+                        className="h-8 w-full max-w-[140px] object-contain"
+                      />
+                    </button>
+                  </div>
 
+                  <div className="flex items-center justify-between gap-2 lg:contents">
                     <div
                       ref={monthPickerRef}
-                      className="relative flex items-center gap-2 lg:col-start-2 lg:justify-self-center"
+                      className="relative flex flex-1 items-center justify-center gap-2 lg:col-start-2 lg:flex-none lg:justify-self-center"
                     >
                       <button
                         type="button"
@@ -4150,12 +4150,11 @@ export default function HomePage() {
                         </div>
                       ) : null}
                     </div>
-                  </div>
-                  <div className="flex w-full flex-nowrap items-center justify-center gap-2 lg:col-start-3 lg:justify-end">
-                    <div className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm sm:h-10">
-                      <span className="px-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)] sm:px-2">
-                        Criar
-                      </span>
+                    <div className="flex shrink-0 items-center gap-2 lg:col-start-3 lg:justify-self-end">
+                      <div className="flex h-9 items-center gap-1 rounded-full border border-[var(--border)] bg-white px-1 py-1 shadow-sm sm:h-10">
+                        <span className="hidden px-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)] sm:inline sm:px-2">
+                          Criar
+                        </span>
                       <button
                         type="button"
                         onClick={() => openTransactionModal("expense")}
@@ -4224,29 +4223,30 @@ export default function HomePage() {
                           <path d="M17 13l4 4-4 4" />
                         </svg>
                       </button>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label="Importar extrato"
-                      title="Importar extrato"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--ink)] sm:h-10 sm:w-10"
-                      disabled
-                    >
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        className="h-4 w-4"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                      </div>
+                      <button
+                        type="button"
+                        aria-label="Importar extrato"
+                        title="Importar extrato"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--muted)] shadow-sm transition hover:border-[var(--accent)] hover:text-[var(--ink)] sm:h-10 sm:w-10"
+                        disabled
                       >
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <path d="M7 10l5 5 5-5" />
-                        <path d="M12 15V3" />
-                      </svg>
-                    </button>
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <path d="M7 10l5 5 5-5" />
+                          <path d="M12 15V3" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </header>
