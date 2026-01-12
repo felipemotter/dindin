@@ -73,6 +73,239 @@ const parseDateValue = (value: string) => {
   }
   return new Date(value);
 };
+
+type DashboardCategoryDatum = {
+  id: string;
+  label: string;
+  value: number;
+  color: string;
+};
+
+type DashboardCashflowPoint = {
+  date: string;
+  value: number;
+};
+
+const formatCompactCurrency = (value: number) =>
+  currencyFormatter
+    .format(value)
+    .replace(/\s/g, "")
+    .replace("R$", "R$ ");
+
+const buildDonutSegments = (
+  rows: Array<{ id: string; label: string; value: number; color: string }>,
+  options?: { maxSegments?: number },
+): DashboardCategoryDatum[] => {
+  const maxSegments = options?.maxSegments ?? 5;
+  const sorted = [...rows]
+    .filter((row) => Number.isFinite(row.value) && row.value > 0.009)
+    .sort((a, b) => b.value - a.value);
+  const head = sorted.slice(0, maxSegments);
+  const tail = sorted.slice(maxSegments);
+  const otherTotal = tail.reduce((sum, item) => sum + item.value, 0);
+  if (otherTotal > 0.009) {
+    head.push({
+      id: "other",
+      label: "Outros",
+      value: otherTotal,
+      color: "#94A3B8",
+    });
+  }
+  return head;
+};
+
+const DonutChart = ({
+  title,
+  segments,
+}: {
+  title: string;
+  segments: DashboardCategoryDatum[];
+}) => {
+  const total = segments.reduce((sum, item) => sum + item.value, 0);
+  const radius = 52;
+  const stroke = 14;
+  const circumference = 2 * Math.PI * radius;
+  const arcs = segments.reduce<{
+    offset: number;
+    arcs: Array<{ id: string; color: string; dashArray: string; dashOffset: number }>;
+  }>(
+    (acc, segment) => {
+      const dash = (segment.value / total) * circumference;
+      return {
+        offset: acc.offset + dash,
+        arcs: [
+          ...acc.arcs,
+          {
+            id: segment.id,
+            color: segment.color,
+            dashArray: `${dash} ${circumference - dash}`,
+            dashOffset: -acc.offset,
+          },
+        ],
+      };
+    },
+    { offset: 0, arcs: [] },
+  ).arcs;
+
+  return (
+    <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+          {title}
+        </h3>
+        <span className="text-xs font-semibold text-[var(--muted)]">
+          {formatCompactCurrency(total)}
+        </span>
+      </div>
+      {total <= 0.009 ? (
+        <p className="mt-6 text-sm text-[var(--muted)]">
+          Sem dados para o período selecionado.
+        </p>
+      ) : (
+        <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="flex items-center justify-center">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+              <circle
+                cx="70"
+                cy="70"
+                r={radius}
+                fill="none"
+                stroke="rgba(148, 163, 184, 0.25)"
+                strokeWidth={stroke}
+              />
+              {arcs.map((arc) => (
+                <circle
+                  key={arc.id}
+                  cx="70"
+                  cy="70"
+                  r={radius}
+                  fill="none"
+                  stroke={arc.color}
+                  strokeWidth={stroke}
+                  strokeDasharray={arc.dashArray}
+                  strokeDashoffset={arc.dashOffset}
+                  strokeLinecap="round"
+                  transform="rotate(-90 70 70)"
+                />
+              ))}
+            </svg>
+          </div>
+          <div className="min-w-0 flex-1 space-y-3">
+            {segments.map((segment) => (
+              <div key={segment.id} className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: segment.color }}
+                  />
+                  <span className="truncate text-sm font-semibold text-[var(--ink)]">
+                    {segment.label}
+                  </span>
+                </div>
+                <span className="shrink-0 text-sm font-semibold text-[var(--ink)]">
+                  {currencyFormatter.format(segment.value)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CashflowChart = ({
+  points,
+  title,
+}: {
+  title: string;
+  points: DashboardCashflowPoint[];
+}) => {
+  const values = points.map((point) => point.value);
+  const minValue = values.length ? Math.min(...values) : 0;
+  const maxValue = values.length ? Math.max(...values) : 0;
+  const range = Math.max(maxValue - minValue, 1);
+
+  const width = 320;
+  const height = 140;
+  const paddingX = 12;
+  const paddingY = 18;
+  const innerWidth = width - paddingX * 2;
+  const innerHeight = height - paddingY * 2;
+
+  const toX = (index: number) => {
+    if (points.length <= 1) {
+      return paddingX;
+    }
+    return paddingX + (index / (points.length - 1)) * innerWidth;
+  };
+
+  const toY = (value: number) =>
+    paddingY + ((maxValue - value) / range) * innerHeight;
+
+  const polyline = points
+    .map((point, index) => `${toX(index)},${toY(point.value)}`)
+    .join(" ");
+
+  const area = points.length
+    ? `${paddingX},${toY(0)} ${polyline} ${paddingX + innerWidth},${toY(0)}`
+    : "";
+
+  const last = points[points.length - 1]?.value ?? 0;
+  const tone =
+    last < 0 ? "text-rose-600" : last > 0 ? "text-emerald-600" : "text-slate-600";
+
+  return (
+    <div className="rounded-3xl border border-[var(--border)] bg-white/80 p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
+          {title}
+        </h3>
+        <span className={`text-xs font-semibold ${tone}`}>
+          {formatCompactCurrency(last)}
+        </span>
+      </div>
+      {points.length === 0 ? (
+        <p className="mt-6 text-sm text-[var(--muted)]">
+          Sem dados para o período selecionado.
+        </p>
+      ) : (
+        <div className="mt-5 overflow-hidden rounded-2xl border border-[var(--border)] bg-white p-3">
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            className="h-36 w-full"
+            preserveAspectRatio="none"
+          >
+            <line
+              x1={paddingX}
+              y1={toY(0)}
+              x2={paddingX + innerWidth}
+              y2={toY(0)}
+              stroke="rgba(148, 163, 184, 0.55)"
+              strokeWidth="1"
+            />
+            <polygon
+              points={area}
+              fill="rgba(59, 130, 246, 0.10)"
+            />
+            <polyline
+              points={polyline}
+              fill="none"
+              stroke="rgba(59, 130, 246, 0.95)"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          </svg>
+          <div className="mt-2 flex items-center justify-between text-xs text-[var(--muted)]">
+            <span>{points[0]?.date?.slice(8, 10)}/{points[0]?.date?.slice(5, 7)}</span>
+            <span>{points[points.length - 1]?.date?.slice(8, 10)}/{points[points.length - 1]?.date?.slice(5, 7)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 const toBrazilDateKey = (value: string) => {
   if (isDateOnly(value)) {
     return value;
@@ -483,6 +716,17 @@ export default function HomePage() {
     expense: 0,
     count: 0,
   });
+  const [dashboardExpenseData, setDashboardExpenseData] = useState<
+    DashboardCategoryDatum[]
+  >([]);
+  const [dashboardIncomeData, setDashboardIncomeData] = useState<
+    DashboardCategoryDatum[]
+  >([]);
+  const [dashboardCashflowPoints, setDashboardCashflowPoints] = useState<
+    DashboardCashflowPoint[]
+  >([]);
+  const [isLoadingDashboardAnalytics, setIsLoadingDashboardAnalytics] =
+    useState(false);
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("checking");
   const [accountVisibility, setAccountVisibility] = useState("shared");
@@ -1336,6 +1580,191 @@ export default function HomePage() {
     filterEndDate,
     activeMonth,
     activeView,
+  ]);
+
+  useEffect(() => {
+    if (activeView !== "dashboard") {
+      return;
+    }
+    if (!activeFamilyId || !session?.access_token) {
+      setDashboardExpenseData([]);
+      setDashboardIncomeData([]);
+      setDashboardCashflowPoints([]);
+      return;
+    }
+    if (accounts.length === 0) {
+      setDashboardExpenseData([]);
+      setDashboardIncomeData([]);
+      setDashboardCashflowPoints([]);
+      return;
+    }
+
+    const monthRange = getMonthRange(activeMonth);
+    if (!monthRange.startDate || !monthRange.endDate) {
+      return;
+    }
+
+    let cancelled = false;
+    const loadAnalytics = async () => {
+      setIsLoadingDashboardAnalytics(true);
+
+      const accountIds = accounts.map((account) => account.id);
+      const { data, error } = await supabase
+        .from("transactions")
+        .select(
+          "amount, source, posted_at, category:categories(id, name, category_type, parent_id, icon_bg, icon_color)",
+        )
+        .in("account_id", accountIds)
+        .gte("posted_at", monthRange.startDate)
+        .lte("posted_at", monthRange.endDate)
+        .order("posted_at", { ascending: true })
+        .order("created_at", { ascending: true })
+        .range(0, 4999);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (error) {
+        setDashboardExpenseData([]);
+        setDashboardIncomeData([]);
+        setDashboardCashflowPoints([]);
+        setIsLoadingDashboardAnalytics(false);
+        return;
+      }
+
+      const categoryColorFallback = [
+        "#2563EB",
+        "#0EA5E9",
+        "#10B981",
+        "#F97316",
+        "#EC4899",
+        "#8B5CF6",
+        "#14B8A6",
+        "#F59E0B",
+      ];
+      let fallbackIndex = 0;
+
+      const pickColor = (id: string, bg?: string | null, color?: string | null) => {
+        const candidate = bg || color;
+        if (candidate) {
+          return candidate;
+        }
+        const chosen = categoryColorFallback[fallbackIndex % categoryColorFallback.length];
+        fallbackIndex += 1;
+        return chosen;
+      };
+
+      const expenseMap = new Map<string, DashboardCategoryDatum>();
+      const incomeMap = new Map<string, DashboardCategoryDatum>();
+      const dailyNet = new Map<string, number>();
+
+      const addDaily = (date: string, delta: number) => {
+        if (!Number.isFinite(delta)) {
+          return;
+        }
+        dailyNet.set(date, (dailyNet.get(date) ?? 0) + delta);
+      };
+
+      (data ?? []).forEach((row) => {
+        const amountValue = Number(row.amount);
+        if (!Number.isFinite(amountValue)) {
+          return;
+        }
+
+        const postedAt = typeof row.posted_at === "string" ? row.posted_at : "";
+        const dayKey = postedAt
+          ? isDateOnly(postedAt)
+            ? postedAt
+            : toBrazilDateKey(postedAt)
+          : monthRange.startDate;
+
+        if (row.source === "transfer") {
+          return;
+        }
+
+        if (row.source === "adjustment") {
+          addDaily(dayKey, amountValue);
+          return;
+        }
+
+        const category = row.category as
+          | {
+              id: string;
+              name: string;
+              category_type: string;
+              parent_id?: string | null;
+              icon_bg?: string | null;
+              icon_color?: string | null;
+            }
+          | null;
+
+        if (!category || !category.id) {
+          return;
+        }
+
+        const categoryEntry = categories.find((item) => item.id === category.id);
+        const parentId = categoryEntry?.parent_id ?? null;
+        const parentName = parentId
+          ? categories.find((item) => item.id === parentId)?.name ?? ""
+          : "";
+        const label = parentName
+          ? `${parentName} / ${category.name}`
+          : category.name;
+        const color = pickColor(
+          category.id,
+          category.icon_bg ?? null,
+          category.icon_color ?? null,
+        );
+
+        if (category.category_type === "income") {
+          incomeMap.set(category.id, {
+            id: category.id,
+            label,
+            color,
+            value: (incomeMap.get(category.id)?.value ?? 0) + amountValue,
+          });
+          addDaily(dayKey, amountValue);
+        } else if (category.category_type === "expense") {
+          expenseMap.set(category.id, {
+            id: category.id,
+            label,
+            color,
+            value: (expenseMap.get(category.id)?.value ?? 0) + amountValue,
+          });
+          addDaily(dayKey, -amountValue);
+        }
+      });
+
+      const expenseSegments = buildDonutSegments(Array.from(expenseMap.values()));
+      const incomeSegments = buildDonutSegments(Array.from(incomeMap.values()));
+
+      const dayPoints: DashboardCashflowPoint[] = [];
+      let cursor = monthRange.startDate;
+      let running = 0;
+      while (cursor <= monthRange.endDate) {
+        running += dailyNet.get(cursor) ?? 0;
+        dayPoints.push({ date: cursor, value: running });
+        cursor = addDaysToBrazilDate(cursor, 1);
+      }
+
+      setDashboardExpenseData(expenseSegments);
+      setDashboardIncomeData(incomeSegments);
+      setDashboardCashflowPoints(dayPoints);
+      setIsLoadingDashboardAnalytics(false);
+    };
+
+    void loadAnalytics();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accounts,
+    categories,
+    activeFamilyId,
+    activeMonth,
+    activeView,
+    session?.access_token,
   ]);
 
   useEffect(() => {
@@ -2735,6 +3164,13 @@ export default function HomePage() {
     }
     return sum + value;
   }, 0);
+  const topAccountsByBalance = [...accounts]
+    .map((account) => ({
+      ...account,
+      balance: accountBalances[account.id] ?? 0,
+    }))
+    .sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0))
+    .slice(0, 5);
   const balanceValueTone =
     totalBalance < 0
       ? "text-rose-100"
@@ -2978,6 +3414,50 @@ export default function HomePage() {
       })
       .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
   };
+  const renderAccountIcon = (
+    account: {
+      name: string;
+      icon_key: string | null;
+      icon_bg: string | null;
+      icon_color: string | null;
+    },
+    wrapperClass = "h-10 w-10",
+    iconClass = "h-5 w-5",
+  ) => {
+    const iconKey = account.icon_key ?? "initials";
+    const iconOption = accountIconLookup[iconKey];
+    const iconBg = account.icon_bg ?? DEFAULT_ACCOUNT_ICON_BG;
+    const iconColor = account.icon_color ?? DEFAULT_ACCOUNT_ICON_COLOR;
+    const shouldShowInitials =
+      iconKey === "initials" || (!iconOption?.icon && !iconOption?.imageSrc);
+    const isLogo = Boolean(iconOption?.imageSrc);
+
+    return (
+      <span
+        className={`flex items-center justify-center rounded-full ${wrapperClass}`}
+        style={{ backgroundColor: iconBg, color: iconColor }}
+      >
+        {isLogo ? (
+          <img
+            src={iconOption?.imageSrc}
+            alt={iconOption?.label ?? account.name}
+            className="h-5 w-5 object-contain"
+            loading="lazy"
+          />
+        ) : shouldShowInitials ? (
+          <span className="text-sm font-semibold">
+            {account.name.slice(0, 2).toUpperCase()}
+          </span>
+        ) : iconOption?.icon ? (
+          iconOption.icon({ className: iconClass })
+        ) : (
+          <span className="text-sm font-semibold">
+            {account.name.slice(0, 2).toUpperCase()}
+          </span>
+        )}
+      </span>
+    );
+  };
   const renderCategoryIcon = (
     category: {
       name: string;
@@ -3092,55 +3572,6 @@ export default function HomePage() {
       </div>
     );
   };
-  const expenseTotals = transactions.reduce<
-    Record<string, { name: string; total: number }>
-  >((acc, transaction) => {
-    if (transaction.category?.category_type !== "expense") {
-      return acc;
-    }
-    const amountValue = Number(transaction.amount);
-    if (!Number.isFinite(amountValue)) {
-      return acc;
-    }
-    const key = transaction.category?.id ?? "unknown";
-    if (!acc[key]) {
-      acc[key] = {
-        name: transaction.category?.id
-          ? getCategoryDisplayLabel(
-              transaction.category.id,
-              transaction.category?.name,
-            )
-          : transaction.category?.name ?? "Sem categoria",
-        total: 0,
-      };
-    }
-    acc[key].total += amountValue;
-    return acc;
-  }, {});
-  const expenseItems = Object.values(expenseTotals).sort(
-    (a, b) => b.total - a.total,
-  );
-  const topExpenseItems = expenseItems.slice(0, 4);
-  const expenseTotal = expenseItems.reduce((sum, item) => sum + item.total, 0);
-  const donutColors = ["#f97316", "#22c55e", "#3b82f6", "#facc15"];
-  let donutCursor = 0;
-  const donutSlices = topExpenseItems
-    .map((item, index) => {
-      if (expenseTotal <= 0) {
-        return null;
-      }
-      const portion = item.total / expenseTotal;
-      const start = donutCursor;
-      const end = donutCursor + portion * 360;
-      donutCursor = end;
-      return `${donutColors[index % donutColors.length]} ${start}deg ${end}deg`;
-    })
-    .filter(Boolean)
-    .join(", ");
-  const donutBackground =
-    expenseTotal > 0 && donutSlices
-      ? `conic-gradient(${donutSlices})`
-      : "conic-gradient(#e2e8f0 0deg, #e2e8f0 360deg)";
   const categoryTypeTabs = [
     {
       value: "expense",
@@ -5758,6 +6189,7 @@ export default function HomePage() {
               ) : (
                 <main className="flex flex-col gap-4 sm:gap-6">
                   {isDashboardView ? (
+                    <>
                     <section className="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <div className="rounded-2xl bg-gradient-to-br from-sky-500 to-sky-600 px-3 py-4 text-white shadow-sm sm:p-4">
                         <div className="flex items-center justify-between">
@@ -5822,9 +6254,191 @@ export default function HomePage() {
                         </p>
                       </div>
                     </section>
+                    <section className="grid gap-4 sm:gap-6 xl:grid-cols-2">
+                      <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="pl-1 sm:pl-0">
+                            <h3 className="text-base font-semibold uppercase tracking-[0.2em] text-[var(--ink)] sm:text-lg sm:tracking-[0.24em]">
+                              Contas com maior saldo
+                            </h3>
+                            <p className="mt-1 text-sm text-[var(--muted)]">
+                              Até {monthLabel}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveView("accounts")}
+                            className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
+                          >
+                            Ver contas
+                          </button>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                          {isLoadingBalances ? (
+                            <p className="text-sm text-[var(--muted)]">
+                              Calculando saldos...
+                            </p>
+                          ) : topAccountsByBalance.length === 0 ? (
+                            <p className="text-sm text-[var(--muted)]">
+                              Nenhuma conta criada ainda.
+                            </p>
+                          ) : (
+                            topAccountsByBalance.map((account) => {
+                              const tone =
+                                account.balance < 0
+                                  ? "text-rose-600"
+                                  : account.balance > 0
+                                    ? "text-emerald-600"
+                                    : "text-[var(--muted)]";
+                              return (
+                                <button
+                                  key={account.id}
+                                  type="button"
+                                  onClick={() => openAccountTransactions(account.id)}
+                                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm transition hover:border-[var(--accent)]"
+                                >
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    {renderAccountIcon(account)}
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-semibold text-[var(--ink)]">
+                                        {account.name}
+                                      </p>
+                                      <p className="text-xs text-[var(--muted)]">
+                                        {account.account_type}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span className={`shrink-0 text-sm font-semibold ${tone}`}>
+                                    {currencyFormatter.format(account.balance)}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="pl-1 sm:pl-0">
+                            <h3 className="text-base font-semibold uppercase tracking-[0.2em] text-[var(--ink)] sm:text-lg sm:tracking-[0.24em]">
+                              Últimas transações
+                            </h3>
+                            <p className="mt-1 text-sm text-[var(--muted)]">
+                              {monthLabel}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveView("transactions")}
+                            className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
+                          >
+                            Ver lançamentos
+                          </button>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                          {isLoadingTransactions ? (
+                            <p className="text-sm text-[var(--muted)]">
+                              Carregando lançamentos...
+                            </p>
+                          ) : transactions.length === 0 ? (
+                            <p className="text-sm text-[var(--muted)]">
+                              Nenhum lançamento encontrado.
+                            </p>
+                          ) : (
+                            transactions.slice(0, 8).map((item) => {
+                              const type =
+                                item.source === "transfer"
+                                  ? "transfer"
+                                  : item.source === "adjustment"
+                                    ? "adjustment"
+                                    : item.category?.category_type ?? "expense";
+                              const sign =
+                                type === "income"
+                                  ? "+"
+                                  : type === "transfer"
+                                    ? item.amount > 0
+                                      ? "+"
+                                      : "-"
+                                    : type === "adjustment"
+                                      ? item.amount >= 0
+                                        ? "+"
+                                        : "-"
+                                      : "-";
+                              const tone =
+                                sign === "+"
+                                  ? "text-emerald-600"
+                                  : "text-rose-600";
+                              const label =
+                                type === "transfer"
+                                  ? "Transferência"
+                                  : type === "adjustment"
+                                    ? "Ajuste"
+                                    : item.category
+                                      ? getCategoryDisplayLabel(
+                                          item.category.id,
+                                          item.category.name,
+                                        )
+                                      : "Categoria";
+                              const dateLabel = isDateOnly(item.posted_at)
+                                ? shortDateFormatter.format(parseBrazilDate(item.posted_at))
+                                : shortDateFormatter.format(parseDateValue(item.posted_at));
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => setActiveView("transactions")}
+                                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm transition hover:border-[var(--accent)]"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold text-[var(--muted)]">
+                                        {dateLabel}
+                                      </span>
+                                      <span className="truncate text-sm font-semibold text-[var(--ink)]">
+                                        {item.description || label}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 truncate text-xs text-[var(--muted)]">
+                                      {label}
+                                      {item.account?.name ? ` • ${item.account.name}` : ""}
+                                    </p>
+                                  </div>
+                                  <span className={`shrink-0 text-sm font-semibold ${tone}`}>
+                                    {sign} {currencyFormatter.format(Math.abs(item.amount))}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="grid gap-4 sm:gap-6 xl:grid-cols-3">
+                      <div className={isLoadingDashboardAnalytics ? "opacity-60" : ""}>
+                        <DonutChart
+                          title="Despesas por categoria"
+                          segments={dashboardExpenseData}
+                        />
+                      </div>
+                      <div className={isLoadingDashboardAnalytics ? "opacity-60" : ""}>
+                        <DonutChart
+                          title="Receitas por categoria"
+                          segments={dashboardIncomeData}
+                        />
+                      </div>
+                      <div className={isLoadingDashboardAnalytics ? "opacity-60" : ""}>
+                        <CashflowChart
+                          title="Fluxo de caixa no mês"
+                          points={dashboardCashflowPoints}
+                        />
+                      </div>
+                    </section>
+                    </>
                   ) : null}
 
-                  {!isTransfersView && !isAccountsView && !isCategoriesView ? (
+                  {isTransactionsView ? (
                     <section
                       className={`grid gap-4 sm:gap-6 ${
                         isDashboardView ? "xl:grid-cols-[minmax(0,1fr)_320px]" : ""
@@ -7535,153 +8149,7 @@ export default function HomePage() {
                     </section>
                   ) : null}
 
-                  {isDashboardView ? (
-                    <>
-                      <section className="grid gap-4 sm:gap-6 xl:grid-cols-2">
-                        <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                              Despesas por categoria
-                            </h3>
-                            <span className="text-xs font-semibold text-[var(--muted)]">
-                              {monthLabel}
-                            </span>
-                          </div>
-                          <div className="mt-5 flex flex-wrap items-center gap-4 sm:gap-6">
-                            <div
-                              className="relative h-28 w-28 rounded-full sm:h-32 sm:w-32"
-                              style={{ background: donutBackground }}
-                            >
-                              <div className="absolute inset-3 rounded-full bg-white sm:inset-4" />
-                            </div>
-                            <div className="flex-1 space-y-3">
-                              {topExpenseItems.length === 0 ? (
-                                <p className="text-sm text-[var(--muted)]">
-                                  Sem despesas no período.
-                                </p>
-                              ) : (
-                                topExpenseItems.map((item, index) => (
-                                  <div
-                                    key={`${item.name}-${index}`}
-                                    className="flex items-center justify-between text-sm text-[var(--ink)]"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className="h-2.5 w-2.5 rounded-full"
-                                        style={{
-                                          backgroundColor:
-                                            donutColors[index % donutColors.length],
-                                        }}
-                                      />
-                                      <span>{item.name}</span>
-                                    </div>
-                                    <span className="font-semibold">
-                                      {currencyFormatter.format(item.total)}
-                                    </span>
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                              Fluxo de caixa
-                            </h3>
-                            <span className="text-xs font-semibold text-[var(--muted)]">
-                              {monthLabel}
-                            </span>
-                          </div>
-                          <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-3 sm:p-4">
-                            <svg
-                              viewBox="0 0 320 120"
-                              className="h-28 w-full sm:h-32"
-                              aria-hidden="true"
-                            >
-                              <path
-                                d="M10 90 L60 70 L110 85 L160 50 L210 60 L260 35 L310 45"
-                                fill="none"
-                                stroke="var(--accent)"
-                                strokeWidth="3"
-                                strokeLinecap="round"
-                              />
-                              <path
-                                d="M10 90 L60 70 L110 85 L160 50 L210 60 L260 35 L310 45 L310 120 L10 120 Z"
-                                fill="rgba(37, 99, 235, 0.12)"
-                              />
-                            </svg>
-                            <div className="mt-3 flex justify-between text-xs text-[var(--muted)]">
-                              <span>Semana 1</span>
-                              <span>Semana 2</span>
-                              <span>Semana 3</span>
-                              <span>Semana 4</span>
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-
-                      <details
-                        className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6"
-                        open={accounts.length === 0 || categories.length === 0}
-                      >
-                        <summary className="cursor-pointer text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                          Cadastros base
-                        </summary>
-                        <div className="mt-5 grid gap-4 sm:gap-6 lg:grid-cols-2">
-                      <div>
-                        <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                          Contas
-                        </h2>
-                        <p className="mt-3 text-sm text-[var(--muted)]">
-                          Gerencie todas as contas na aba dedicada.
-                        </p>
-                        <div className="mt-4 flex flex-col gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setActiveView("accounts")}
-                            className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                          >
-                            Ir para Contas
-                          </button>
-                          <button
-                            type="button"
-                            onClick={openAccountModal}
-                            className="inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)]"
-                          >
-                            Nova conta
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--muted)]">
-                          Categorias
-                        </h2>
-                        <p className="mt-3 text-sm text-[var(--muted)]">
-                          Organize entradas e saídas na aba dedicada.
-                        </p>
-                        <div className="mt-4 flex flex-col gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setActiveView("categories")}
-                            className="inline-flex items-center justify-center rounded-xl border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
-                          >
-                            Ir para Categorias
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openCategoryModal()}
-                            className="inline-flex items-center justify-center rounded-xl bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-blue-500/30 transition hover:bg-[var(--accent-strong)]"
-                          >
-                            Nova categoria
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </details>
-                    </>
-                  ) : null}
+                  
                 </main>
               )}
             </div>
