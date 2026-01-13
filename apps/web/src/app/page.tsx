@@ -782,6 +782,7 @@ export default function HomePage() {
   >([]);
   const [isLoadingDashboardAnalytics, setIsLoadingDashboardAnalytics] =
     useState(false);
+  const [dataRefreshCounter, setDataRefreshCounter] = useState(0);
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("checking");
   const [accountVisibility, setAccountVisibility] = useState("shared");
@@ -1635,6 +1636,7 @@ export default function HomePage() {
     filterEndDate,
     activeMonth,
     activeView,
+    dataRefreshCounter,
   ]);
 
   useEffect(() => {
@@ -1856,6 +1858,7 @@ export default function HomePage() {
     activeMonth,
     activeView,
     session?.access_token,
+    dataRefreshCounter,
   ]);
 
   useEffect(() => {
@@ -3218,25 +3221,7 @@ export default function HomePage() {
 
     setTransactionAmount("");
     setTransactionDescription("");
-    const monthRange = getMonthRange(activeMonth);
-    const isTransactionsScreen = activeView === "transactions";
-    const rangeStartDate = isTransactionsScreen
-      ? filterStartDate || monthRange.startDate
-      : monthRange.startDate;
-    const rangeEndDate = isTransactionsScreen
-      ? filterEndDate || monthRange.endDate
-      : monthRange.endDate;
-    await loadTransactions(
-      accounts.map((account) => account.id),
-      session.access_token,
-      transactionsLimit,
-      {
-        accountId: filterAccountId || undefined,
-        categoryId: filterCategoryId || undefined,
-        startDate: rangeStartDate || undefined,
-        endDate: rangeEndDate || undefined,
-      },
-    );
+    setDataRefreshCounter((value) => value + 1);
     setIsCreatingTransaction(false);
     if (submitAction === "repeat") {
       return;
