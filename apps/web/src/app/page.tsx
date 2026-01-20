@@ -23,6 +23,11 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
+const currencyNoCentsFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+});
 const shortDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "2-digit",
@@ -91,6 +96,23 @@ const formatCompactCurrency = (value: number) =>
     .format(value)
     .replace(/\s/g, "")
     .replace("R$", "R$ ");
+
+const formatCompactBRL = (value: number) => {
+  const absoluteValue = Math.abs(value);
+  const sign = value < 0 ? "-" : "";
+  const formatNumber = (num: number, suffix: string) =>
+    `${sign}R$ ${num.toFixed(1).replace(".", ",")}${suffix}`;
+  if (absoluteValue >= 1_000_000_000) {
+    return formatNumber(absoluteValue / 1_000_000_000, "B");
+  }
+  if (absoluteValue >= 1_000_000) {
+    return formatNumber(absoluteValue / 1_000_000, "M");
+  }
+  if (absoluteValue >= 1_000) {
+    return formatNumber(absoluteValue / 1_000, "k");
+  }
+  return `${sign}${currencyNoCentsFormatter.format(absoluteValue)}`;
+};
 
 const buildDonutSegments = (
   rows: Array<{ id: string; label: string; value: number; color: string }>,
@@ -4447,7 +4469,7 @@ export default function HomePage() {
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 lg:contents">
+	                  <div className="flex flex-wrap items-center justify-between gap-2 lg:contents">
                     <div
                       ref={monthPickerRef}
                       className="relative flex flex-1 items-center justify-center gap-2 lg:col-start-2 lg:flex-none lg:justify-self-center"
@@ -4473,20 +4495,22 @@ export default function HomePage() {
                           <path d="M15 18l-6-6 6-6" />
                         </svg>
                       </button>
-                      <button
-                        type="button"
-                        aria-haspopup="dialog"
-                        aria-expanded={isMonthPickerOpen}
+	                      <button
+	                        type="button"
+	                        aria-haspopup="dialog"
+	                        aria-expanded={isMonthPickerOpen}
                         onClick={() => {
                           setMonthPickerYear(activeYear);
                           setIsMonthPickerOpen((prev) => !prev);
                         }}
-                        className="flex h-9 items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 text-[11px] font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)] sm:h-10 sm:px-4 sm:text-sm"
-                      >
-                        <span>{activeMonthLabel}</span>
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
+	                        className="flex h-9 min-w-0 items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 text-[11px] font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)] sm:h-10 sm:px-4 sm:text-sm"
+	                      >
+	                        <span className="max-w-[120px] truncate sm:max-w-none">
+	                          {activeMonthLabel}
+	                        </span>
+	                        <svg
+	                          aria-hidden="true"
+	                          viewBox="0 0 24 24"
                           className="h-4 w-4 text-[var(--muted)]"
                           fill="none"
                           stroke="currentColor"
@@ -6298,28 +6322,21 @@ export default function HomePage() {
                       </div>
                     </section>
                     <section className="grid gap-4 sm:gap-6 xl:grid-cols-2">
-                      <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="pl-1 sm:pl-0">
-                            <h3 className="text-base font-semibold uppercase tracking-[0.2em] text-[var(--ink)] sm:text-lg sm:tracking-[0.24em]">
-                              Contas com maior saldo
-                            </h3>
-                            <p className="mt-1 text-sm text-[var(--muted)]">
-                              Até {monthLabel}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setActiveView("accounts")}
-                            className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
-                          >
-                            Ver contas
-                          </button>
-                        </div>
-                        <div className="mt-4 space-y-3">
-                          {isLoadingBalances ? (
-                            <p className="text-sm text-[var(--muted)]">
-                              Calculando saldos...
+	                      <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
+	                        <div className="flex flex-wrap items-center justify-between gap-2">
+	                          <div className="pl-1 sm:pl-0">
+	                            <h3 className="text-base font-semibold uppercase tracking-[0.2em] text-[var(--ink)] sm:text-lg sm:tracking-[0.24em]">
+	                              Contas com maior saldo
+	                            </h3>
+	                            <p className="mt-1 text-sm text-[var(--muted)]">
+	                              Até {monthLabel}
+	                            </p>
+	                          </div>
+	                        </div>
+	                        <div className="mt-4 space-y-3">
+	                          {isLoadingBalances ? (
+	                            <p className="text-sm text-[var(--muted)]">
+	                              Calculando saldos...
                             </p>
                           ) : topAccountsByBalance.length === 0 ? (
                             <p className="text-sm text-[var(--muted)]">
@@ -6333,53 +6350,63 @@ export default function HomePage() {
                                   : account.balance > 0
                                     ? "text-emerald-600"
                                     : "text-[var(--muted)]";
-                              return (
-                                <button
-                                  key={account.id}
-                                  type="button"
-                                  onClick={() => openAccountTransactions(account.id)}
-                                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm transition hover:border-[var(--accent)]"
-                                >
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    {renderAccountIcon(account)}
-                                    <div className="min-w-0">
-                                      <p className="truncate text-sm font-semibold text-[var(--ink)]">
-                                        {account.name}
-                                      </p>
+		                              return (
+		                                <button
+		                                  key={account.id}
+		                                  type="button"
+		                                  onClick={() => openAccountTransactions(account.id)}
+		                                  className="flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm transition hover:border-[var(--accent)]"
+		                                >
+		                                  <div className="flex min-w-0 flex-1 items-center gap-3">
+		                                    {renderAccountIcon(account)}
+		                                    <div className="min-w-0">
+	                                      <p className="truncate text-sm font-semibold text-[var(--ink)]">
+	                                        {account.name}
+	                                      </p>
                                       <p className="text-xs text-[var(--muted)]">
                                         {account.account_type}
                                       </p>
                                     </div>
                                   </div>
-                                  <span className={`shrink-0 text-sm font-semibold ${tone}`}>
-                                    {currencyFormatter.format(account.balance)}
-                                  </span>
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
+		                                  <span
+		                                    className={`shrink-0 max-w-[110px] truncate text-right text-sm font-semibold tabular-nums ${tone}`}
+		                                    title={currencyFormatter.format(account.balance)}
+		                                  >
+		                                    <span className="sm:hidden">
+		                                      {formatCompactBRL(account.balance)}
+		                                    </span>
+		                                    <span className="hidden sm:inline">
+		                                      {currencyFormatter.format(account.balance)}
+	                                    </span>
+	                                  </span>
+	                                </button>
+		                              );
+		                            })
+		                          )}
+	                        </div>
+	                        {!isLoadingBalances && topAccountsByBalance.length > 0 ? (
+	                          <button
+	                            type="button"
+	                            onClick={() => setActiveView("accounts")}
+	                            className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+	                          >
+	                            Ver todas as contas
+	                          </button>
+	                        ) : null}
+	                      </div>
 
-                      <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="pl-1 sm:pl-0">
-                            <h3 className="text-base font-semibold uppercase tracking-[0.2em] text-[var(--ink)] sm:text-lg sm:tracking-[0.24em]">
-                              Últimas transações
-                            </h3>
-                            <p className="mt-1 text-sm text-[var(--muted)]">
-                              {monthLabel}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setActiveView("transactions")}
-                            className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold text-[var(--ink)] transition hover:border-[var(--accent)]"
-                          >
-                            Ver lançamentos
-                          </button>
-                        </div>
-                        <div className="mt-4 space-y-3">
+	                      <div className="rounded-3xl border border-[var(--border)] bg-white/80 px-1.5 py-4 shadow-sm sm:p-6">
+	                        <div className="flex flex-wrap items-center justify-between gap-2">
+	                          <div className="pl-1 sm:pl-0">
+	                            <h3 className="text-base font-semibold uppercase tracking-[0.2em] text-[var(--ink)] sm:text-lg sm:tracking-[0.24em]">
+	                              Últimas transações
+	                            </h3>
+	                            <p className="mt-1 text-sm text-[var(--muted)]">
+	                              {monthLabel}
+	                            </p>
+	                          </div>
+	                        </div>
+	                        <div className="mt-4 space-y-3">
                           {isLoadingTransactions ? (
                             <p className="text-sm text-[var(--muted)]">
                               Carregando lançamentos...
@@ -6426,36 +6453,50 @@ export default function HomePage() {
                               const dateLabel = isDateOnly(item.posted_at)
                                 ? shortDateFormatter.format(parseBrazilDate(item.posted_at))
                                 : shortDateFormatter.format(parseDateValue(item.posted_at));
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => setActiveView("transactions")}
-                                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm transition hover:border-[var(--accent)]"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-semibold text-[var(--muted)]">
-                                        {dateLabel}
-                                      </span>
-                                      <span className="truncate text-sm font-semibold text-[var(--ink)]">
-                                        {item.description || label}
-                                      </span>
-                                    </div>
-                                    <p className="mt-1 truncate text-xs text-[var(--muted)]">
-                                      {label}
-                                      {item.account?.name ? ` • ${item.account.name}` : ""}
-                                    </p>
-                                  </div>
-                                  <span className={`shrink-0 text-sm font-semibold ${tone}`}>
-                                    {sign} {currencyFormatter.format(Math.abs(item.amount))}
-                                  </span>
-                                </button>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
+	                              return (
+	                                <button
+	                                  key={item.id}
+	                                  type="button"
+	                                  onClick={() => setActiveView("transactions")}
+	                                  className="flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-left shadow-sm transition hover:border-[var(--accent)]"
+	                                >
+	                                  <div className="min-w-0 flex-1">
+	                                    <div className="flex min-w-0 items-center justify-between gap-3">
+	                                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--ink)]">
+	                                        {item.description || label}
+	                                      </span>
+	                                      <span
+	                                        className={`shrink-0 max-w-[110px] truncate text-right text-sm font-semibold tabular-nums ${tone}`}
+	                                        title={`${sign} ${currencyFormatter.format(Math.abs(item.amount))}`}
+	                                      >
+	                                        <span className="sm:hidden">
+	                                          {sign} {formatCompactBRL(Math.abs(item.amount))}
+	                                        </span>
+	                                        <span className="hidden sm:inline">
+	                                          {sign} {currencyFormatter.format(Math.abs(item.amount))}
+	                                        </span>
+	                                      </span>
+	                                    </div>
+	                                    <p className="mt-1 truncate text-xs text-[var(--muted)]">
+	                                      {dateLabel} • {label}
+	                                      {item.account?.name ? ` • ${item.account.name}` : ""}
+	                                    </p>
+	                                  </div>
+	                                </button>
+	                              );
+	                            })
+	                          )}
+	                        </div>
+	                        {!isLoadingTransactions && transactions.length > 0 ? (
+	                          <button
+	                            type="button"
+	                            onClick={() => setActiveView("transactions")}
+	                            className="mt-4 inline-flex w-full items-center justify-center rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--ink)] shadow-sm transition hover:border-[var(--accent)]"
+	                          >
+	                            Ver todos os lançamentos
+	                          </button>
+	                        ) : null}
+	                      </div>
                     </section>
 
                     <section className="grid items-stretch gap-4 sm:gap-6 xl:grid-cols-3">
